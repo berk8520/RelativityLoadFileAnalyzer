@@ -1,0 +1,312 @@
+Source Field,Relativity Field Type,Max Length,Sample Data
+BEGDOC,Fixed-length Text,93,SC-VIMASCO-SHIPMAN-000001                    Exhibit  A Table of Asbestos-Containing Products
+BEGATT,Fixed-length Text,93,SC-VIMASCO-SHIPMAN-000001                    Exhibit  A Table of Asbestos-Containing Products
+ProductionTextPath,Fixed-length Text,139,\MIG_Covil_Prods_Native_Only_001\Text\046\SC-VIMASCO-SHIPMAN-000001                    Exhibit  A Table of Asbestos-Containing Products.txt
+ProductionNativePath,Fixed-length Text,141,\MIG_Covil_Prods_Native_Only_001\Native\046\SC-VIMASCO-SHIPMAN-000001                    Exhibit  A Table of Asbestos-Containing Products.pdf
+ApplicationName,Fixed-length Text,0,""
+Attachment Count,Whole Number,2,48
+Attachment Names,Long Text,1716,"Huggins (AIG) Payne & Keller Coverage Ltr.pdf; Brandywine ACE Tender Letter 2022-06-01 IL - D.pdf; image003.jpg; Diaz, Rodolfo - IL.pdf; Resolute Mgmt Tender Letter 2022-06-01 IL - Di.pdf; David Wilson Asbestos Litigation.pdf; image006.jpg; 11-07-18 ..."
+AttachmentRange,Fixed-length Text,0,""
+Attorney Comments,Long Text,1938,"legal document - deposition; Dunean Silk Mill, Starke General Hospital, Hunter Air Force Base, Marine Base Parris Island, Douglas Aircraft, Juice Plant in Leesburg FL, Shipyards in Houston, Butadiene Plants (synthetic rubber), Power plant in Glasgow ..."
+Author From,Fixed-length Text,51,"Casillas, Deanna (Allianz Resolution Management US)"
+Coding Agner Report Description,Fixed-length Text,0,""
+Coding Author From,Fixed-length Text,0,""
+Coding Bailey Report Description,Fixed-length Text,0,""
+Coding Brock Report Description,Fixed-length Text,0,""
+Coding Carpenter Report Description,Fixed-length Text,0,""
+Coding Cooper Report Description,Fixed-length Text,0,""
+Coding Covil Involvement,Fixed-length Text,0,""
+Coding D'Amico Report Description,Fixed-length Text,0,""
+Coding Date,Fixed-length Text,0,""
+Coding Doc Type,Fixed-length Text,0,""
+Coding Document Description,Fixed-length Text,0,""
+Coding Efird Report Description,Fixed-length Text,0,""
+Coding Folder Title,Fixed-length Text,53,"Great Barrier - Pensacola Invoices 1980 & Hanshaw, SC"
+Coding Hagan Report Description,Fixed-length Text,0,""
+Coding Hutto Report Description,Fixed-length Text,0,""
+Coding Jolly Description,Fixed-length Text,0,""
+Coding Jonas Report Description,Fixed-length Text,0,""
+Coding LF White Description,Fixed-length Text,0,""
+Coding McDaniel Description,Fixed-length Text,0,""
+Coding Morgan Report Description,Fixed-length Text,0,""
+Coding Moss Description,Fixed-length Text,0,""
+Coding Murphy Report Description,Fixed-length Text,0,""
+Coding Rampey Report Description,Fixed-length Text,0,""
+Coding Recipient,Fixed-length Text,0,""
+Coding Reilly Report Description,Fixed-length Text,0,""
+Coding Sims Report Description,Fixed-length Text,0,""
+Coding Smith James Description,Fixed-length Text,0,""
+Coding Source,Fixed-length Text,0,""
+Coding Taylor Jack Report Description,Fixed-length Text,0,""
+Coding Title Subject,Fixed-length Text,43,1993-06-10 James Montgomery Depo Transcript
+Coding TKnight Description,Fixed-length Text,0,""
+Coding Trial Exhibit Description,Fixed-length Text,0,""
+Coding Vinson Report Description,Fixed-length Text,0,""
+Coding Weist Report Description,Fixed-length Text,0,""
+Coding WKnight Report Description,Fixed-length Text,0,""
+CONFIDENTIALITY,Fixed-length Text,0,""
+Custodian,Fixed-length Text,20,Alice Manufacturiing
+Custodian All,Fixed-length Text,0,""
+Date Created,Date,19,07/10/2025 09:40:00
+Date Created Date,Date,10,07/10/2025
+Date Created Time,Date,8,11:00 AM
+Date Last Access,Date,19,07/10/2025 09:40:00
+Date Last Access Date,Date,10,07/10/2025
+Date Last Access Time,Date,8,10:23 AM
+Date Last Printed,Date,19,01/02/2020 09:23:00
+Date Last Printed Date,Date,10,01/02/2020
+Date Last Printed Time,Date,8,10:58 AM
+Date Modified,Date,19,05/28/2025 13:40:00
+Date Modified Date,Date,10,05/28/2025
+Date Modified Time,Date,8,11:56 AM
+Date Sort,Fixed-length Text,0,""
+Designation,Fixed-length Text,0,""
+Doc_Id,Fixed-length Text,0,""
+DocExt,Fixed-length Text,4,xlsx
+DOCUMENTDATE,Date,19,05/28/2025 00:00:00
+Email BCC,Fixed-length Text,0,""
+Email CC,Fixed-length Text,134,Danny Nieto <danny@rplegalgroup.com>; steve.luxton@morganlewis.com <steve.luxton@morganlewis.com>; Forrest Lewis <Forrest@mklawsc.com>
+Email Conversation Index,Fixed-length Text,94,0101D8E26047B83F04991393B64585F330D1CC939B56AE133D50208000D79AE080001AFCF08001C5028080004C0890
+Email Conversation Topic,Fixed-length Text,29,P&K vs. AON - Meet and Confer
+Email Domains,Fixed-length Text,44,mklawsc.com;morganlewis.com;rplegalgroup.com
+Email Entry ID,Fixed-length Text,0,""
+Email Folder,Fixed-length Text,0,""
+Email From,Fixed-length Text,30,Jamie Khan <jamie@mklawsc.com>
+Email Message ID,Fixed-length Text,0,""
+Email Read Status,Fixed-length Text,5,False
+Email Received,Fixed-length Text,19,10/19/2022 17:39:00
+Email Received Date,Date,10,10/19/2022
+Email Received Time,Date,7,5:39 PM
+Email Sent,Fixed-length Text,19,10/19/2022 17:38:00
+Email Sent Date,Date,10,10/19/2022
+Email Sent Time,Date,7,5:38 PM
+Email SentOnBehalfOf,Fixed-length Text,0,""
+Email Store Name,Fixed-length Text,0,""
+Email Subject,Fixed-length Text,33,RE: P&K vs. AON - Meet and Confer
+Email To,Fixed-length Text,78,Brian Barnwell <BB@rplegalgroup.com>; Lindsay Valek <lindsay@rplegalgroup.com>
+Email Type,Fixed-length Text,4,Note
+Employee Name,Fixed-length Text,0,""
+ENDATT,Fixed-length Text,93,SC-VIMASCO-SHIPMAN-000001                    Exhibit  A Table of Asbestos-Containing Products
+ENDDOC,Fixed-length Text,93,SC-VIMASCO-SHIPMAN-000001                    Exhibit  A Table of Asbestos-Containing Products
+File Category,Fixed-length Text,20,Edocument Attachment
+File Date,Date,19,05/28/2025 13:40:00
+File Extension,Fixed-length Text,4,JPEG
+File Family Date,Date,19,05/28/2025 13:40:00
+File Name,Fixed-length Text,114,20221111 Ltr to Brian Barnwell re Subpoena Response and Objections Letter - AIM Subpoena and Deposition Notice.pdf
+File Path All,Fixed-length Text,0,""
+File Path Relative,Fixed-length Text,101,E-Doc\2021-08-27-Wannamaker-Eastman production-part 2\2021-08-27-Wannamaker-Eastman production-part 2
+File Path Source,Fixed-length Text,187,\\30182-wfs01\P1-D1\Client Data\13502 - Covil\0000-CovilCaseDocuments\Images2\PR000002\upload59->Childers Document Productions.zip\2022-12-02 AON-AIM deposition exhibits\Receiver exhibits
+File Size,Decimal,11,321930.0000
+File Type,Fixed-length Text,32,Portable Network Graphics Format
+Folder Contents,Fixed-length Text,0,""
+Group_ID,Fixed-length Text,0,""
+Hidden Content,Fixed-length Text,39,;Excel Hidden Rows;Excel Hidden Columns
+Importance,Fixed-length Text,0,""
+Languages Identified,Fixed-length Text,85,Albanian;English;Italian;Maltese;Romanian;Serbian;Norwegian Bokmål;Norwegian Nynorsk
+Last Saved By,Fixed-length Text,16,"Dimond, Ellen B."
+MD5 Hash,Fixed-length Text,32,F71B4F2FA8581648EAEE423C4B06515E
+Paralegal Comments,Fixed-length Text,8,bad file
+Parent Attachment,Fixed-length Text,1,P
+PgCount,Fixed-length Text,3,105
+Plaintiff,Fixed-length Text,0,""
+Plaintiff Name,Fixed-length Text,0,""
+Privilege Description,Fixed-length Text,0,""
+PROD BEGATT,Fixed-length Text,0,""
+PROD BEGDOC,Fixed-length Text,0,""
+PROD CustomText,Fixed-length Text,11,SIRRINE_003
+PROD ENDATT,Fixed-length Text,0,""
+PROD ENDDOC,Fixed-length Text,0,""
+PRODBEG AGNER,Fixed-length Text,0,""
+PRODBEG ALLEN,Fixed-length Text,0,""
+PRODBEG ARCHER,Fixed-length Text,0,""
+PRODBEG ASHWORTH,Fixed-length Text,0,""
+PRODBEG ASPRAY,Fixed-length Text,0,""
+PRODBEG BAILEY,Fixed-length Text,0,""
+PRODBEG BARKLEY,Fixed-length Text,0,""
+PRODBEG BERLEY,Fixed-length Text,0,""
+PRODBEG BLAIR,Fixed-length Text,0,""
+PRODBEG BOSTIAN,Fixed-length Text,0,""
+PRODBEG BROCK,Fixed-length Text,0,""
+PRODBEG CAMPBELL,Fixed-length Text,0,""
+PRODBEG CARPENTER,Fixed-length Text,0,""
+PRODBEG CLEVELAND,Fixed-length Text,0,""
+PRODBEG COOPER,Fixed-length Text,0,""
+PRODBEG DAMICO,Fixed-length Text,0,""
+PRODBEG DAVIS,Fixed-length Text,0,""
+PRODBEG EFIRD,Fixed-length Text,0,""
+PRODBEG GARREN,Fixed-length Text,0,""
+PRODBEG GOODWIN,Fixed-length Text,0,""
+PRODBEG HAGAN,Fixed-length Text,0,""
+PRODBEG HALE,Fixed-length Text,0,""
+PRODBEG HALES,Fixed-length Text,0,""
+PRODBEG HAMMETT,Fixed-length Text,0,""
+PRODBEG HORNE,Fixed-length Text,0,""
+PRODBEG HOTRTON,Fixed-length Text,0,""
+PRODBEG HUTTO,Fixed-length Text,0,""
+PRODBEG JOHNSON,Fixed-length Text,0,""
+PRODBEG JOLLY,Fixed-length Text,0,""
+PRODBEG JONAS,Fixed-length Text,0,""
+PRODBEG KENNON,Fixed-length Text,0,""
+PRODBEG KJOHNSON,Fixed-length Text,0,""
+PRODBEG LAMM,Fixed-length Text,0,""
+PRODBEG LOVE,Fixed-length Text,0,""
+PRODBEG MCDANIEL,Fixed-length Text,0,""
+PRODBEG MORGAN,Fixed-length Text,0,""
+PRODBEG MOSS,Fixed-length Text,0,""
+PRODBEG MURPHY,Fixed-length Text,0,""
+PRODBEG PARK,Fixed-length Text,0,""
+PRODBEG PATTERSON,Fixed-length Text,0,""
+PRODBEG PICKLESIMER,Fixed-length Text,0,""
+PRODBEG RAMPEY,Fixed-length Text,0,""
+PRODBEG REILLY,Fixed-length Text,0,""
+PRODBEG ROLLINS,Fixed-length Text,0,""
+PRODBEG SHIPMAN,Fixed-length Text,0,""
+PRODBEG SIMS,Fixed-length Text,0,""
+PRODBEG SMITHJAMES,Fixed-length Text,0,""
+PRODBEG SMITHSADIE,Fixed-length Text,0,""
+PRODBEG SWEATT,Fixed-length Text,0,""
+PRODBEG TAYLORBRADLEY,Fixed-length Text,0,""
+PRODBEG TAYLORJACK,Fixed-length Text,0,""
+PRODBEG THOMAS,Fixed-length Text,0,""
+PRODBEG TKNIGHT,Fixed-length Text,0,""
+PRODBEG VINSON,Fixed-length Text,0,""
+PRODBEG WANNAMAKER,Fixed-length Text,0,""
+PRODBEG WEIST,Fixed-length Text,0,""
+PRODBEG WELCH,Fixed-length Text,0,""
+PRODBEG WHITE,Fixed-length Text,0,""
+PRODBEG WHITEHEAD,Fixed-length Text,0,""
+PRODBEG WILSON,Fixed-length Text,0,""
+PRODBEG WKNIGHT,Fixed-length Text,0,""
+PRODEND AGNER,Fixed-length Text,0,""
+PRODEND ALLEN,Fixed-length Text,0,""
+PRODEND ARCHER,Fixed-length Text,0,""
+PRODEND ASHWORTH,Fixed-length Text,0,""
+PRODEND ASPRAY,Fixed-length Text,0,""
+PRODEND BAILEY,Fixed-length Text,0,""
+PRODEND BARKLEY,Fixed-length Text,0,""
+PRODEND BERLEY,Fixed-length Text,0,""
+PRODEND BLAIR,Fixed-length Text,0,""
+PRODEND BOSTIAN,Fixed-length Text,0,""
+PRODEND BROCK,Fixed-length Text,0,""
+PRODEND CAMPBELL,Fixed-length Text,0,""
+PRODEND CARPENTER,Fixed-length Text,0,""
+PRODEND CLEVELAND,Fixed-length Text,0,""
+PRODEND COOPER,Fixed-length Text,0,""
+PRODEND DAMICO,Fixed-length Text,0,""
+PRODEND DAVIS,Fixed-length Text,0,""
+PRODEND EFIRD,Fixed-length Text,0,""
+PRODEND GARREN,Fixed-length Text,0,""
+PRODEND GOODWIN,Fixed-length Text,0,""
+PRODEND HAGAN,Fixed-length Text,0,""
+PRODEND HALE,Fixed-length Text,0,""
+PRODEND HALES,Fixed-length Text,0,""
+PRODEND HAMMETT,Fixed-length Text,0,""
+PRODEND HORNE,Fixed-length Text,0,""
+PRODEND HOTRTON,Fixed-length Text,0,""
+PRODEND HUTTO,Fixed-length Text,0,""
+PRODEND JOHNSON,Fixed-length Text,0,""
+PRODEND JOLLY,Fixed-length Text,0,""
+PRODEND JONAS,Fixed-length Text,0,""
+PRODEND KENNON,Fixed-length Text,0,""
+PRODEND KJOHNSON,Fixed-length Text,0,""
+PRODEND LAMM,Fixed-length Text,0,""
+PRODEND LOVE,Fixed-length Text,0,""
+PRODEND MCDANIEL,Fixed-length Text,0,""
+PRODEND MORGAN,Fixed-length Text,0,""
+PRODEND MOSS,Fixed-length Text,0,""
+PRODEND MURPHY,Fixed-length Text,0,""
+PRODEND PARK,Fixed-length Text,0,""
+PRODEND PATTERSON,Fixed-length Text,0,""
+PRODEND PICKLESIMER,Fixed-length Text,0,""
+PRODEND RAMPEY,Fixed-length Text,0,""
+PRODEND REILLY,Fixed-length Text,0,""
+PRODEND ROLLINS,Fixed-length Text,0,""
+PRODEND SHIPMAN,Fixed-length Text,0,""
+PRODEND SIMS,Fixed-length Text,0,""
+PRODEND SMITHJAMES,Fixed-length Text,0,""
+PRODEND SMITHSADIE,Fixed-length Text,0,""
+PRODEND SWEATT,Fixed-length Text,0,""
+PRODEND TAYLORBRADLEY,Fixed-length Text,0,""
+PRODEND TAYLORJACK,Fixed-length Text,0,""
+PRODEND THOMAS,Fixed-length Text,0,""
+PRODEND TKNIGHT,Fixed-length Text,0,""
+PRODEND VINSON,Fixed-length Text,0,""
+PRODEND WANNAMAKER,Fixed-length Text,0,""
+PRODEND WEIST,Fixed-length Text,0,""
+PRODEND WELCH,Fixed-length Text,0,""
+PRODEND WHITE,Fixed-length Text,0,""
+PRODEND WHITEHEAD,Fixed-length Text,0,""
+PRODEND WILSON,Fixed-length Text,0,""
+PRODEND WKNIGHT,Fixed-length Text,0,""
+Producing Party,Fixed-length Text,27,United Construction of Rome
+Production Order,Fixed-length Text,0,""
+PRODVOL AGNER,Fixed-length Text,0,""
+PRODVOL ALLEN,Fixed-length Text,0,""
+PRODVOL ARCHER,Fixed-length Text,0,""
+PRODVOL ASHWORTH,Fixed-length Text,0,""
+PRODVOL ASPRAY,Fixed-length Text,0,""
+PRODVOL BAILEY,Fixed-length Text,0,""
+PRODVOL BARKLEY,Fixed-length Text,0,""
+PRODVOL BERLEY,Fixed-length Text,0,""
+PRODVOL BLAIR,Fixed-length Text,0,""
+PRODVOL BOSTIAN,Fixed-length Text,0,""
+PRODVOL BROCK,Fixed-length Text,0,""
+PRODVOL CAMPBELL,Fixed-length Text,0,""
+PRODVOL CARPENTER,Fixed-length Text,0,""
+PRODVOL CLEVELAND,Fixed-length Text,0,""
+PRODVOL COOPER,Fixed-length Text,0,""
+PRODVOL DAMICO,Fixed-length Text,0,""
+PRODVOL DAVIS,Fixed-length Text,0,""
+PRODVOL EFIRD,Fixed-length Text,0,""
+PRODVOL GARREN,Fixed-length Text,0,""
+PRODVOL GOODWIN,Fixed-length Text,0,""
+PRODVOL HAGAN,Fixed-length Text,0,""
+PRODVOL HALE,Fixed-length Text,0,""
+PRODVOL HALES,Fixed-length Text,0,""
+PRODVOL HAMMETT,Fixed-length Text,0,""
+PRODVOL HORNE,Fixed-length Text,0,""
+PRODVOL HOTRTON,Fixed-length Text,0,""
+PRODVOL HUTTO,Fixed-length Text,0,""
+PRODVOL JOHNSON,Fixed-length Text,0,""
+PRODVOL JOLLY,Fixed-length Text,0,""
+PRODVOL JONAS,Fixed-length Text,0,""
+PRODVOL KENNON,Fixed-length Text,0,""
+PRODVOL KJOHNSON,Fixed-length Text,0,""
+PRODVOL LAMM,Fixed-length Text,0,""
+PRODVOL LOVE,Fixed-length Text,0,""
+PRODVOL MCDANIEL,Fixed-length Text,0,""
+PRODVOL MORGAN,Fixed-length Text,0,""
+PRODVOL MOSS,Fixed-length Text,0,""
+PRODVOL MURPHY,Fixed-length Text,0,""
+PRODVOL PARK,Fixed-length Text,0,""
+PRODVOL PATTERSON,Fixed-length Text,0,""
+PRODVOL PICKLESIMER,Fixed-length Text,0,""
+PRODVOL RAMPEY,Fixed-length Text,0,""
+PRODVOL REILLY,Fixed-length Text,0,""
+PRODVOL ROLLINS,Fixed-length Text,0,""
+PRODVOL SHIPMAN,Fixed-length Text,0,""
+PRODVOL SIMS,Fixed-length Text,0,""
+PRODVOL SMITHJAMES,Fixed-length Text,0,""
+PRODVOL SMITHSADIE,Fixed-length Text,0,""
+PRODVOL SWEATT,Fixed-length Text,0,""
+PRODVOL TAYLORBRADLEY,Fixed-length Text,0,""
+PRODVOL TAYLORJACK,Fixed-length Text,0,""
+PRODVOL THOMAS,Fixed-length Text,0,""
+PRODVOL TKNIGHT,Fixed-length Text,0,""
+PRODVOL VINSON,Fixed-length Text,0,""
+PRODVOL WANNAMAKER,Fixed-length Text,0,""
+PRODVOL WEIST,Fixed-length Text,0,""
+PRODVOL WELCH,Fixed-length Text,0,""
+PRODVOL WHITE,Fixed-length Text,0,""
+PRODVOL WHITEHEAD,Fixed-length Text,0,""
+PRODVOL WILSON,Fixed-length Text,0,""
+PRODVOL WKNIGHT,Fixed-length Text,0,""
+Record Type,Fixed-length Text,5,E-DOC
+Redacted,Fixed-length Text,0,""
+Related Matter,Fixed-length Text,20,Vistra_CRS011846.pdf
+SHA1 Hash,Fixed-length Text,40,521A7B5F4152850C28330B5FEF97484D33A09621
+System File Path,Fixed-length Text,207,"\\30182-wfs01\P1-D1\Client Data\13502 - Covil\0000-CovilProductionDocuments-Review\Export\Davis_Mechanical\DAVIS_PROD012\NATIVE\0001\Davis Mechanical Contractors, Inc. (Jennifer Pierce) 12-02-2022 306467.txt"
+Title,Fixed-length Text,64,"304126 UPDATED (Tommy Hunter), Starr Davis 10-12-2021 [30(b)(6)]"
+Title Subject,Long Text,286,file:///C/Users/caseyhewett/Box/ASBESTOS/South%20Carolina/Davis%20Mechanical/McGuire%20Woods/2023-03-10%20DMC%20Client%20Material/Client_Data/Corporate/ESI045/Davis%20Mech%20MF/2022.02.24%20Travelers%20Davis%20Mech%20Production/TRAV_SUB_008/TRAV_SUB_...
+Volume,Fixed-length Text,28,McDowell_Greenwood_Mills_001
+DOCUMENTTAGS,Long Text,1369,"Other Party Production Issues>1. Covil Business>;Other Party Production Issues>1. Covil Business>a. Covil Only Business>;Exposure Sites >American Enka>;Exposure Sites >American Enka>American Enka>;Exposure Sites >American Enka>Asheville/Enka, NC>;Oth..."

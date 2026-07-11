@@ -1,0 +1,69 @@
+Field types    
+Relativity supports the following field types:
+
+Fixed-length text
+Long text
+Date
+Whole number
+Decimal
+Currency
+Yes/No
+Single choice
+Multiple choice
+User
+File
+Single object
+Multiple object
+Fixed-length text    
+The fixed-length text field type is a text field with a limited length. You can use up to 4,999 characters. Unicode-enabled fixed-length text fields cannot exceed 4,000 characters.
+
+The sum of all fixed-length text fields for any individual object should be no larger than 8,060 bytes. To see how many of your 8,060 bytes remain, go to object you are checking. The control panel section displays remaining bytes in the usage field.
+Examples: Email from, Email subject, Conversation, Document extension, File Name, Parent Document ID, Subject.
+Long text    
+You can add more than 4,999 characters in a long text field.
+
+The technical limitation of a long text field is 2 GB. Relativity usually defaults to streaming only files smaller than 50 MB.
+Examples: Full text, Conversation ID, Email BCC, Email To, Source File, Title
+Date    
+The date field type stores the date or date and time. Dates must be in a valid format. For example, 01/00/2000 is not valid. Attempting to load an invalid date produces an error.
+
+Relativity accepts many formats, including SQL-accepted formats that match your SQL Server’s regional settings. However, the date displays as mm/dd/yyyy for the US or dd/mm/yyyy for the UK. When entering a date field, you can use the picker to choose from a calendar or enter a date directly in the field.
+Example: Email sent date, Date Created, Date Last Modified, Date Received, Date Sent.
+When you search on a user-created date field using a relative date, Last 7 Days for example, you may see different results between a saved search and a search from the search panel if you are not in the same timezone as your Relativity instance.
+
+Whole number    
+The whole number field type stores any natural numbers or their negatives.
+
+This value cannot exceed 2,147,483,647. In other words, 2,147,483,648 and higher is invalid.
+Example: Page count, Number of Attachments.
+Decimal    
+The decimal field type stores numeric values that may include decimals.
+
+With this field you can have a maximum of 15 digits before the decimal and two digits after the decimal.
+Example: Percentage, File Size.
+Currency    
+The currency field type stores numeric values in a currency format. Ten digits is the maximum for this field.
+
+Your currency symbol is set based on Windows regional currency settings in the server hosting Relativity. The formatting, such as decimal, commas, negative number sign, the position of currency symbol, are based on the browser's language. When using RelativityOne, the settings of the regional server cannot be changed. They are set to the US currency symbol.
+Example: Amount sold.
+Yes/No    
+The Yes/No field type accepts one of two values. The default values are Yes and No.
+
+You can edit the display values in the Yes/No display values section. See Fields.
+Example: Reviewed.
+Use Single Choice fields rather than Yes/No fields when possible - creating Single Choice fields will not impact reviews and may improve search performance. Before doing so however, check to confirm whether your workflow can support Single Choice fields.
+If you are exporting a Yes/No field type with Import/Export or Integration Points, the values will display as True/False in the exported files.
+Yes/No fields are useful, but consider the following caveat:
+
+Searching for yes/no fields can be difficult, especially if the field displays as a checkbox. The check box only displays as checked or unchecked; however, a yes/no field has three potential values. These values include yes, no, or null. Because of the searching difficulties, you may want to display yes/no fields as drop-down menus.
+
+Single choice    
+The single choice field type provides a predetermined set of values called choices.
+
+You can choose only one value.
+Example: Responsiveness, Custodian
+Multiple choice    
+The multiple choice field type provides a predetermined set of values called choices.
+
+You can choose multiple choices. You can also nest the choices in a hierarchy structure.
+Example: Issues, Deponent
