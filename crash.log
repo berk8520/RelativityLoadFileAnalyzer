@@ -1,0 +1,6 @@
+2026-07-21 00:16:46.549623
+Traceback (most recent call last):
+  File "c:\code\python\RelativityLoadFileAnalyzer\pyside_main.py", line 1835, in sync_filter_widths
+    self.filter_exp.setFixedWidth(self.header.sectionSize(0))
+    ^^^^^^^^^^^^^^^
+AttributeError: 'RelativityApp' object has no attribute 'filter_exp'. Did you mean: 'filter_smp'?

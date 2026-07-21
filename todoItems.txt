@@ -1,0 +1,31 @@
+#TODO:
+
+Fix the delimiter autodetect 
+Add tool tips to all transforms
+Load file merging for dat and opt:
+    User defined DociD,Nativepath,Textpath
+    Build Data map of all headers in dat file
+    Import records all records to dataframe
+    Update Path fields with Volume ID if needed.
+    Build lookup dict of docIds
+    Throw on duplicate DocID
+    Throw on missing mappped field.
+    Generate new Dat from dataframe
+    Generate Error Log
+
+    
+Load file splitting by size or record count
+Conversion to/from DLF, LFP, DII
+line numbers should alway represent the original dat line number in the data preview
+
+OPT to PDF conversion
+OPT to PDF Rollup by Family CSV
+Filter on record viewer should include field names
+
+Change past Mass redact run info string to: File name, date, fields
+Add instructions to field selector for Gap detection
+Add instructions on search limitations to search dialogs
+
+
+Add select delimiter dialg for failed autodetect 
+

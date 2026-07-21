@@ -1,0 +1,26 @@
+import json
+
+log_path = r"C:\Users\BDoering\.gemini\antigravity\brain\4aef9933-a57a-4809-a032-a8e3a74db66f\.system_generated\logs\transcript_full.jsonl"
+
+with open(log_path, 'r', encoding='utf-8') as f:
+    for line in f:
+        if "def read_records" in line or "def read_specific_records" in line:
+            try:
+                data = json.loads(line)
+                # print the step index and key details
+                print(f"Step Index: {data.get('step_index')}")
+                if "tool_calls" in data:
+                    for tc in data["tool_calls"]:
+                        args = tc.get("args", {})
+                        content = args.get("ReplacementContent", "") or args.get("CodeContent", "")
+                        if "read_records" in content:
+                            print("Found in tool call args!")
+                            open("scratch_read_records.txt", "w", encoding="utf-8").write(content)
+                if "content" in data:
+                    content = data["content"]
+                    if "read_records" in content:
+                        print("Found in content!")
+                        open("scratch_read_records_content.txt", "w", encoding="utf-8").write(content)
+            except Exception as e:
+                pass
+print("Done.")

@@ -1,0 +1,173 @@
+Created At: 2026-07-13T15:23:56Z
+Completed At: 2026-07-13T15:23:56Z
+The following changes were made by the replace_file_content tool to: c:\code\python\RelativityLoadFileAnalyzer\processor.py. If relevant, proactively run terminal commands to execute this code for the USER. Don't ask for permission.
+[diff_block_start]
+@@ -840,4 +840,165 @@
+         if os.path.exists(temp_path):
+             os.remove(temp_path)
+         raise e
++
++def append_field_data(file_path, new_field_name, val_type, static_val="", copy_field="", encoding=None, sep=None, quote=None, target_line_numbers=None):
++    """
++    Streams through the load file, appends a new column to the file, and populates it.
++    val_type can be 'static', 'row_num', or 'copy'.
++    """
++    import csv
++    import tempfile
++    import shutil
++    
++    encoding = encoding or get_encoding(file_path)
++    if sep is None or quote is None:
++        det_sep, det_quote = get_delimiters(file_path)
++        sep = sep or det_sep
++        quote = quote or det_quote
++        
++    temp_fd, temp_path = tempfile.mkstemp(dir=os.path.dirname(file_path), suffix=".tmp")
++    os.close(temp_fd)
++    
++    count = 0
++    target_set = set(target_line_numbers) if target_line_numbers is not None else None
++    
++    try:
++        with open(file_path, 'r', encoding=encoding, newline='') as fin:
++            reader = csv.reader(fin, delimiter=sep, quotechar=quote)
++            
++            with open(temp_path, 'w', encoding=encoding, newline='') as fout:
++                writer = csv.writer(fout, delimiter=sep, quotechar=quote, quoting=csv.QUOTE_ALL)
++                
++                try:
++                    headers = next(reader)
++                except StopIteration:
++                    return 0
++                
++                # Check if new_field_name already exists case-insensitively
++                for h in headers:
++                    if h.lower() == new_field_name.lower():
++                        raise ValueError(f"Field '{new_field_name}' already exists in headers.")
++                        
++                # Find copy_field index if copying
++                copy_idx = -1
++                if val_type == "copy":
++                    for i, h in enumerate(headers):
++                        if h.lower() == copy_field.lower():
++                            copy_idx = i
++                            break
++                    if copy_idx == -1:
++                        raise ValueError(f"Source Field to copy '{copy_field}' not found in headers.")
++                
++                headers.append(new_field_name)
++                writer.writerow(headers)
++                
++                line_num = 1
++                for row in reader:
++                    if target_set is not None and line_num not in target_set:
++                        row.append("")
++                        writer.writerow(row)
++                        line_num += 1
++                        continue
++                        
++                    val_to_append = ""
++                    if val_type == "static":
++                        val_to_append = static_val
++                        count += 1
++                    elif val_type == "row_num":
++                        val_to_append = str(line_num)
++                        count += 1
++                    elif val_type == "copy":
++                        if copy_idx < len(row):
++                            val_to_append = row[copy_idx]
++                            count += 1
++                    
++                    row.append(val_to_append)
++                    writer.writerow(row)
++                    line_num += 1
++                    
++        shutil.copy2(temp_path, file_path)
++        os.remove(temp_path)
++        return count
++    except Exception as e:
++        if os.path.exists(temp_path):
++            os.remove(temp_path)
++        raise e
++
++def merge_fields_data(file_path, first_field, second_field, delimiter, new_field_name, encoding=None, sep=None, quote=None, target_line_numbers=None):
++    """
++    Streams through the load file, merges two fields into a new appended field, and updates the file.
++    """
++    import csv
++    import tempfile
++    import shutil
++    
++    encoding = encoding or get_encoding(file_path)
++    if sep is None or quote is None:
++        det_sep, det_quote = get_delimiters(file_path)
++        sep = sep or det_sep
++        quote = quote or det_quote
++        
++    temp_fd, temp_path = tempfile.mkstemp(dir=os.path.dirname(file_path), suffix=".tmp")
++    os.close(temp_fd)
++    
++    count = 0
++    target_set = set(target_line_numbers) if target_line_numbers is not None else None
++    
++    try:
++        with open(file_path, 'r', encoding=encoding, newline='') as fin:
++            reader = csv.reader(fin, delimiter=sep, quotechar=quote)
++            
++            with open(temp_path, 'w', encoding=encoding, newline='') as fout:
++                writer = csv.writer(fout, delimiter=sep, quotechar=quote, quoting=csv.QUOTE_ALL)
++                
++                try:
++                    headers = next(reader)
++                except StopIteration:
++                    return 0
++                    
++                # Check if new_field_name already exists case-insensitively
++                for h in headers:
++                    if h.lower() == new_field_name.lower():
++                        raise ValueError(f"Field '{new_field_name}' already exists in headers.")
++                        
++                first_idx = -1
++                second_idx = -1
++                for i, h in enumerate(headers):
++                    if h.lower() == first_field.lower():
++                        first_idx = i
++                    if h.lower() == second_field.lower():
++                        second_idx = i
++                        
++                if first_idx == -1:
++                    raise ValueError(f"First Field '{first_field}' not found in headers.")
++                if second_idx == -1:
++                    raise ValueError(f"Second Field '{second_field}' not found in headers.")
++                    
++                headers.append(new_field_name)
++                writer.writerow(headers)
++                
++                line_num = 1
++                for row in reader:
++                    if target_set is not None and line_num not in target_set:
++                        row.append("")
++                        writer.writerow(row)
++                        line_num += 1
++                        continue
++                        
++                    first_val = row[first_idx] if first_idx < len(row) else ""
++                    second_val = row[second_idx] if second_idx < len(row) else ""
++                    
++                    merged_val = f"{first_val}{delimiter}{second_val}"
++                    row.append(merged_val)
++                    writer.writerow(row)
++                    count += 1
++                    line_num += 1
++                    
++        shutil.copy2(temp_path, file_path)
++        os.remove(temp_path)
++        return count
++    except Exception as e:
++        if os.path.exists(temp_path):
++            os.remove(temp_path)
++        raise e
+ 
+[diff_block_end]
+
+Please note that the above snippet only shows the MODIFIED lines from the last change. It shows up to 3 lines of unchanged lines before and after the modified lines. The actual file contents may have many more lines not shown.

@@ -9,7 +9,7 @@ from tkinter import filedialog
 # Real processor functions
 from processor import analyze_load_file, load_mapping_csv, normalize_field_name, remap_headers, find_sequence_gaps
 
-class RelativityLoadFileAnalyzer:
+class PageOneRelativityLoadFileTools:
     def __init__(self, page: ft.Page):
         self.page = page
         self.selected_file_path = None
@@ -44,7 +44,7 @@ class RelativityLoadFileAnalyzer:
             pass
             
         self.page.debug_show_checked_mode_banner = False
-        self.page.title = "Relativity Load File Analyzer"
+        self.page.title = "Page One Relativity Load File Tools"
         self.page.theme_mode = ft.ThemeMode.DARK
         self.page.padding = 20
         self.page.window_width = 1200
@@ -85,7 +85,7 @@ class RelativityLoadFileAnalyzer:
                         ),
                         ft.Column(
                             [
-                                ft.Text("Relativity Load File Analyzer", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                                ft.Text("Page One Relativity Load File Tools", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
                                 ft.Text("E-Discovery Schema Utility", size=11, color=ft.Colors.BLUE_GREY_400),
                             ],
                             spacing=0,
@@ -645,7 +645,7 @@ class RelativityLoadFileAnalyzer:
                 content=ft.Column(
                     [
                         ft.Row([
-                            ft.Text("Relativity Load File Analyzer - Help", size=20, weight=ft.FontWeight.BOLD),
+                            ft.Text("Page One Relativity Load File Tools - Help", size=20, weight=ft.FontWeight.BOLD),
                             ft.IconButton(ft.Icons.CLOSE, on_click=self.close_help)
                         ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                         ft.Divider(),
@@ -880,7 +880,7 @@ class RelativityLoadFileAnalyzer:
         self.page.update()
 
 async def main(page: ft.Page):
-    analyzer = RelativityLoadFileAnalyzer(page)
+    analyzer = PageOneRelativityLoadFileTools(page)
     await analyzer.initialize()
 
 if __name__ == "__main__":

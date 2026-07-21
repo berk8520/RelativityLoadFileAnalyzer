@@ -8,3 +8,4 @@ env/
 *.pyc
 *.dat
 *.DAT
+sampleLoadfiles/
