@@ -236,7 +236,7 @@ def analyze_load_file(file_path, encoding=None, sep=None, quote=None):
             except StopIteration:
                 raise Exception("File appears to be empty.")
             
-            headers = [h.strip() for h in headers]
+            headers = [h.lstrip('\ufeff').strip(quote + ' \t\r\n') for h in headers]
             num_cols = len(headers)
             
             # Initialize accumulator lists
@@ -798,6 +798,7 @@ def read_records(file_path, start_line, limit, encoding=None, sep=None, quote=No
             reader = csv.reader(f, delimiter=sep, quotechar=quote)
             try:
                 headers = next(reader)
+                headers = [h.lstrip('\ufeff').strip(quote + ' \t\r\n') for h in headers]
             except StopIteration:
                 return [], []
             
@@ -860,6 +861,7 @@ def read_specific_records(file_path, target_lines, encoding=None, sep=None, quot
             reader = csv.reader(f, delimiter=sep, quotechar=quote)
             try:
                 headers = next(reader)
+                headers = [h.lstrip('\ufeff').strip(quote + ' \t\r\n') for h in headers]
             except StopIteration:
                 return [], []
             

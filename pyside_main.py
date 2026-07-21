@@ -22,8 +22,11 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QSize, QSettings
 from PyQt5.QtGui import QIcon, QFont, QPixmap, QKeySequence, QSyntaxHighlighter, QTextCharFormat, QColor
 import processor
+import opt_engine
+from opt_engine import OptDocumentStore, OptDocument, parse_image_load_file, infer_base_dir, resolve_full_image_path
+from unified_document_viewer import UnifiedDocumentViewer
 from pyside_workers import AnalysisWorker, RemapWorker, GapWorker, PreviewSearchWorker, ReplaceWorker, AppendFieldWorker, MergeFieldsWorker, MassRedactionWorker
-from pyside_models import SchemaTableModel, SchemaFilterProxyModel, GapTableModel, PreviewTableModel, RecordTableModel
+from pyside_models import SchemaTableModel, SchemaFilterProxyModel, GapTableModel, PreviewTableModel, RecordTableModel, ImagePageTableModel
 
 
 def get_asset_path(*args):
@@ -1441,6 +1444,12 @@ class RelativityApp(QMainWindow):
         self.preview_hits = []
         self.preview_current_hit_index = -1
 
+        # Image Engine & Studio state
+        self.opt_store = OptDocumentStore()
+        self.image_doc_id_field = ""
+        self.doc_id_metadata_map = {}  # {DocID: {Field: Value}}
+        self.image_current_doc_idx = 0
+
         self.setAcceptDrops(True)
         self.init_ui()
 
@@ -1644,30 +1653,60 @@ class RelativityApp(QMainWindow):
         self.preview_table.horizontalHeader().setStretchLastSection(True)
         self.preview_splitter.addWidget(self.preview_table)
         
-        # Right Record View
-        self.record_widget = QWidget()
-        record_layout = QVBoxLayout(self.record_widget)
-        self.chk_hide_empty_fields = QCheckBox("Hide Empty Fields")
-        self.chk_hide_empty_fields.setStyleSheet(GLOBAL_STYLE)
-        self.record_search = QLineEdit()
-        self.record_search.setPlaceholderText("Filter record properties...")
-        
-        self.record_table = CopyableTableView()
-        self.record_model = RecordTableModel()
-        self.record_table.setModel(self.record_model)
-        self.record_table.horizontalHeader().setStretchLastSection(True)
-        self.record_table.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        self.record_table.setSelectionBehavior(QTableView.SelectRows)
-        self.record_table.setSelectionMode(QTableView.SingleSelection)
-        record_layout.addWidget(self.chk_hide_empty_fields)
-        record_layout.addWidget(self.record_search)
-        record_layout.addWidget(self.record_table)
-        
-        self.preview_splitter.addWidget(self.record_widget)
-        self.preview_splitter.setSizes([800, 300])
+        # Right Record View using UnifiedDocumentViewer
+        self.preview_doc_viewer = UnifiedDocumentViewer()
+        self.preview_splitter.addWidget(self.preview_doc_viewer)
+        self.preview_splitter.setSizes([900, 300])
         
         preview_layout.addWidget(self.preview_splitter, 1)
-        
+
+        # --- Image Preview Tab ---
+        image_preview_tab = QWidget()
+        img_preview_layout = QVBoxLayout(image_preview_tab)
+        img_preview_layout.setContentsMargins(10, 10, 10, 10)
+        img_preview_layout.setSpacing(8)
+
+        # Header Panel
+        img_header_box = QFrame()
+        img_header_box.setObjectName("Card")
+        img_header_box.setStyleSheet(GLOBAL_STYLE)
+        img_header_layout = QHBoxLayout(img_header_box)
+        img_header_layout.setContentsMargins(10, 8, 10, 8)
+
+        lbl_doc_id = QLabel("DocID Field:")
+        lbl_doc_id.setStyleSheet("font-weight: bold; color: #94A3B8;")
+        self.cb_image_doc_id = QComboBox()
+        self.cb_image_doc_id.setMinimumWidth(180)
+
+        self.lbl_image_status_badge = QLabel("No Image File Loaded")
+        self.lbl_image_status_badge.setStyleSheet("color: #FBBF24; font-weight: bold; padding: 4px 8px; background-color: #334155; border-radius: 4px;")
+
+        img_header_layout.addWidget(lbl_doc_id)
+        img_header_layout.addWidget(self.cb_image_doc_id)
+        img_header_layout.addSpacing(15)
+        img_header_layout.addWidget(self.lbl_image_status_badge)
+        img_header_layout.addStretch()
+
+        img_preview_layout.addWidget(img_header_box)
+
+        # Body Splitter (Left: Table, Right: Viewer)
+        self.image_splitter = QSplitter(Qt.Horizontal)
+        self.image_table = QTableView()
+        self.image_table.setStyleSheet("background-color: #1E293B; gridline-color: #334155; color: #FFFFFF;")
+        self.image_table_model = ImagePageTableModel()
+        self.image_table.setModel(self.image_table_model)
+        self.image_table.setSelectionBehavior(QTableView.SelectRows)
+        self.image_table.setSelectionMode(QTableView.SingleSelection)
+        self.image_table.horizontalHeader().setStretchLastSection(True)
+
+        self.studio_doc_viewer = UnifiedDocumentViewer()
+
+        self.image_splitter.addWidget(self.image_table)
+        self.image_splitter.addWidget(self.studio_doc_viewer)
+        self.image_splitter.setSizes([900, 300])
+
+        img_preview_layout.addWidget(self.image_splitter, 1)
+
         # Schema Tab
 
         schema_tab = QWidget()
@@ -1754,11 +1793,15 @@ class RelativityApp(QMainWindow):
         schema_layout.addWidget(self.schema_table)
         self.tabs.addTab(schema_tab, "Schema Analysis")
         self.tabs.addTab(preview_tab, "Data Preview")
+        self.tabs.addTab(image_preview_tab, "Image Preview")
 
         main_layout.addWidget(self.tabs)
 
+        # Initial dynamic button text
+        self.btn_open.setText("Open Data Load File")
+
         # Connect Signals
-        self.btn_open.clicked.connect(self.open_file)
+        self.btn_open.clicked.connect(self.on_open_clicked)
         self.btn_export_analysis.clicked.connect(self.export_analysis)
 
         self.btn_help.clicked.connect(self.show_help)
@@ -1778,6 +1821,14 @@ class RelativityApp(QMainWindow):
         self.txt_quick_search.returnPressed.connect(self.run_quick_search)
         self.btn_advanced_search.clicked.connect(self.preview_search_open)
         self.btn_clear_search.clicked.connect(self.clear_all_searches)
+
+        # Image Studio Signals
+        self.cb_image_doc_id.currentTextChanged.connect(self.on_doc_id_field_changed)
+        self.image_table.selectionModel().selectionChanged.connect(self.on_image_table_row_selected)
+        self.preview_doc_viewer.request_nav_action.connect(self.handle_preview_nav)
+        self.studio_doc_viewer.request_nav_action.connect(self.handle_studio_nav)
+        self.preview_doc_viewer.page_changed.connect(self.on_preview_page_changed)
+        self.studio_doc_viewer.page_changed.connect(self.on_studio_page_changed)
         self.act_replace.triggered.connect(self.show_replace_dialog)
         self.act_format_dates.triggered.connect(self.show_format_date_dialog)
         self.act_append_field.triggered.connect(self.show_append_field_dialog)
@@ -1786,8 +1837,6 @@ class RelativityApp(QMainWindow):
         self.act_gap_report.triggered.connect(self.show_gap_report_dialog)
         self.preview_line_spin.editingFinished.connect(self.preview_go)
         self.preview_table.selectionModel().selectionChanged.connect(self.preview_row_selected)
-        self.record_search.textChanged.connect(self.record_search_changed)
-        self.chk_hide_empty_fields.stateChanged.connect(self.on_hide_empty_fields_changed)
 
 
     def resizeEvent(self, event):
@@ -2052,11 +2101,20 @@ class RelativityApp(QMainWindow):
             return
             
         ext = os.path.splitext(file_path)[1].lower()
-        if ext in ['.dat', '.csv', '.txt']:
-            self.selected_file_path = file_path
-            self.start_analysis()
-        else:
-            show_dark_message(self, "Invalid File", "Please drop a valid load file (.dat, .csv, .txt)", QMessageBox.Warning)
+        current_tab = self.tabs.currentIndex()
+
+        if current_tab == 2:  # Image Preview tab
+            if ext in ['.opt', '.dii', '.smi', '.lfp']:
+                # Import image load file
+                self.import_image_load_file_path(file_path)
+            else:
+                show_dark_message(self, "Invalid File", "Please drop a valid image load file (.opt, .dii, .smi, .lfp)", QMessageBox.Warning)
+        else:  # Schema Analysis or Data Preview tabs
+            if ext in ['.dat', '.csv', '.txt']:
+                self.selected_file_path = file_path
+                self.start_analysis()
+            else:
+                show_dark_message(self, "Invalid File", "Please drop a valid load file (.dat, .csv, .txt)", QMessageBox.Warning)
 
     def on_analysis_finished(self, encoding, delimiter, row_count, schema_results):
         self.progress.accept()
@@ -2273,8 +2331,38 @@ class RelativityApp(QMainWindow):
                 
             self.preview_headers = headers
             self.preview_model.update_data(headers, records, start_line=self.preview_start_line)
+
+            # Build metadata lookup map for dynamic binding
+            self.doc_id_metadata_map = {}
+            for rec in records:
+                row_dict = {}
+                for idx, h in enumerate(headers):
+                    if idx < len(rec):
+                        row_dict[h] = str(rec[idx])
+                
+                # Determine control/doc identifier
+                doc_id = ""
+                if self.image_doc_id_field and self.image_doc_id_field in row_dict:
+                    doc_id = row_dict[self.image_doc_id_field]
+                else:
+                    for cand in ("Control Number", "DocID", "BegBates", "Bates", "ID"):
+                        for key in row_dict:
+                            if cand.lower() in key.lower():
+                                doc_id = row_dict[key]
+                                break
+                        if doc_id:
+                            break
+                if not doc_id and headers:
+                    doc_id = row_dict.get(headers[0], "")
+                if doc_id:
+                    self.doc_id_metadata_map[doc_id] = row_dict
+
             if records:
-                self.preview_table.selectRow(0)
+                self.preview_table.selectionModel().blockSignals(True)
+                try:
+                    self.preview_table.selectRow(0)
+                finally:
+                    self.preview_table.selectionModel().blockSignals(False)
         except Exception as e:
             show_dark_message(self, "Preview Error", str(e), QMessageBox.Critical)
 
@@ -2351,29 +2439,45 @@ class RelativityApp(QMainWindow):
     def preview_row_selected(self, selected, deselected):
         indexes = self.preview_table.selectionModel().selectedRows()
         if not indexes:
-            self.record_model.update_data([], [])
             return
         row = indexes[0].row()
         if row < len(self.preview_model._data):
             row_data = self.preview_model._data[row]
-            self.record_model.update_data(self.preview_headers, row_data)
-            self.record_search_changed() # apply current filter
+            # Build metadata dict for record
+            record_dict = {}
+            for idx, h in enumerate(self.preview_headers):
+                if idx < len(row_data):
+                    record_dict[h] = str(row_data[idx])
             
-    def on_hide_empty_fields_changed(self, state):
-        self.record_model.set_hide_empty(state == Qt.Checked)
-        self.record_search_changed()
+            doc_id = ""
+            if self.image_doc_id_field and self.image_doc_id_field in record_dict:
+                doc_id = record_dict[self.image_doc_id_field]
+            else:
+                # Search candidate fields
+                for cand in ("Control Number", "DocID", "BegBates", "Bates", "ID"):
+                    for key in record_dict:
+                        if cand.lower() in key.lower():
+                            doc_id = record_dict[key]
+                            break
+                    if doc_id:
+                        break
+            if not doc_id and self.preview_headers:
+                doc_id = record_dict.get(self.preview_headers[0], "")
 
-    def record_search_changed(self):
-        query = self.record_search.text().lower()
-        if not query:
-            for r in range(self.record_model.rowCount()):
-                self.record_table.setRowHidden(r, False)
-            return
-            
-        for r in range(self.record_model.rowCount()):
-            h = str(self.record_model.headers[r]).lower() if r < len(self.record_model.headers) else ""
-            v = str(self.record_model.row_data[r]).lower() if r < len(self.record_model.row_data) else ""
-            self.record_table.setRowHidden(r, query not in h and query not in v)
+            base_dir = getattr(self.preview_doc_viewer, "base_dir", "") or os.path.dirname(self.selected_file_path or "")
+            self.preview_doc_viewer.set_stores(self.opt_store, {doc_id: record_dict}, base_dir=base_dir)
+            self.preview_doc_viewer.record_selected(doc_id)
+
+            # Bidirectional cross-tab synchronization: select the matching page row in the image table
+            self.image_table.selectionModel().blockSignals(True)
+            try:
+                for idx, page_tuple in enumerate(self.image_table_model.pages):
+                    p_doc_id = page_tuple[1]
+                    if str(p_doc_id).strip().lower() == str(doc_id).strip().lower():
+                        self.image_table.selectRow(idx)
+                        break
+            finally:
+                self.image_table.selectionModel().blockSignals(False)
 
     def show_replace_dialog(self):
         if not self.selected_file_path or not self.analysis_results:
@@ -3125,7 +3229,297 @@ class RelativityApp(QMainWindow):
             new_proxy_idx = self.schema_proxy.mapFromSource(new_src_idx)
             self.schema_table.setCurrentIndex(new_proxy_idx)
 
+    def open_image_load_file(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Select Image Load File", "", "Image Load Files (*.opt *.lfp *.dii *.smi);;Opticon (*.opt);;IPRO LFP (*.lfp);;Summation DII (*.dii);;Summation SMI (*.smi);;All Files (*.*)"
+        )
+        if not file_path:
+            return
+        self.import_image_load_file_path(file_path)
+
+    def import_image_load_file_path(self, file_path: str):
+        try:
+            self.opt_store = parse_image_load_file(file_path)
+            self.last_image_load_file_path = file_path
+
+            # Clear out image viewer immediately
+            self.studio_doc_viewer.clear_viewer()
+            self.preview_doc_viewer.clear_viewer()
+
+            # Populate DocID dropdown but default to BLANK, blocking signals so it doesn't trigger immediately
+            fields = [""] + ([r["column"] for r in self.analysis_results] if self.analysis_results else [])
+            self.cb_image_doc_id.blockSignals(True)
+            self.cb_image_doc_id.clear()
+            self.cb_image_doc_id.addItems(fields)
+            self.cb_image_doc_id.setCurrentIndex(0)
+            self.image_doc_id_field = ""
+            self.cb_image_doc_id.blockSignals(False)
+
+            # Universal load file population: list all flat page records immediately
+            pages = self.opt_store.get_all_pages()
+            self.image_table_model.update_pages(pages)
+
+            if pages:
+                self.image_table.selectRow(0)
+                self.lbl_image_status_badge.setText(f"Loaded: {len(pages):,} pages (Unmapped)")
+                self.lbl_image_status_badge.setStyleSheet("color: #FBBF24; font-weight: bold; padding: 4px 8px; background-color: #1E293B; border-radius: 4px;")
+            else:
+                self.lbl_image_status_badge.setText("No Images Found")
+                self.lbl_image_status_badge.setStyleSheet("color: #F87171; font-weight: bold; padding: 4px 8px; background-color: #1E293B; border-radius: 4px;")
+
+            show_dark_message(self, "Load File Imported", f"Successfully loaded {len(self.opt_store)} documents from {os.path.basename(file_path)}. Choose a DocID Field dropdown value to map paths and display images.")
+        except Exception as e:
+            show_dark_message(self, "Load File Error", str(e), QMessageBox.Critical)
+
+    def update_image_studio_link_status(self):
+        pages = self.opt_store.get_all_pages()
+        self.image_table_model.update_pages(pages)
+
+        if pages:
+            self.image_table.selectRow(0)
+            self.image_current_doc_idx = 0
+            self.lbl_image_status_badge.setText(f"Linked: {len(pages):,} pages ({len(self.opt_store):,} docs)")
+            self.lbl_image_status_badge.setStyleSheet("color: #4ADE80; font-weight: bold; padding: 4px 8px; background-color: #1E293B; border-radius: 4px;")
+            self.update_nav_controls()
+        else:
+            self.lbl_image_status_badge.setText("No Images Linked")
+            self.lbl_image_status_badge.setStyleSheet("color: #F87171; font-weight: bold; padding: 4px 8px; background-color: #1E293B; border-radius: 4px;")
+
+    def on_doc_id_field_changed(self, text):
+        self.image_doc_id_field = text
+        if not text or not hasattr(self, "opt_store") or not self.opt_store:
+            # Re-mapping to blank/invalid should clear viewer smoothly without index crashes
+            self.studio_doc_viewer.clear_viewer()
+            pages = self.opt_store.get_all_pages() if (hasattr(self, "opt_store") and self.opt_store) else []
+            self.image_table_model.update_pages(pages)
+            self.lbl_image_status_badge.setText("No Images Linked")
+            self.lbl_image_status_badge.setStyleSheet("color: #F87171; font-weight: bold; padding: 4px 8px; background-color: #1E293B; border-radius: 4px;")
+            return
+
+        # Perform path verification and remapping logic now that user has explicitly chosen a DocID field
+        base_dir = os.path.dirname(getattr(self, "last_image_load_file_path", ""))
+        first_img = self.opt_store.get_first_image_path()
+        if first_img:
+            test_full_path = resolve_full_image_path(first_img, base_dir)
+            if not os.path.exists(test_full_path):
+                msg = (
+                    f"The first image file was not found at expected location:\n\n"
+                    f"{test_full_path}\n\n"
+                    f"Expected relative path: {first_img}\n\n"
+                    f"Would you like to browse and select the actual image file on disk to remap the base directory?"
+                )
+                res = show_dark_warning_yes_no_cancel(self, "Image Path Not Found", msg)
+                if res == QMessageBox.Yes:
+                    actual_img_path, _ = QFileDialog.getOpenFileName(
+                        self, f"Locate Image ({os.path.basename(first_img)})", base_dir, "Images & PDFs (*.tif *.tiff *.jpg *.jpeg *.pdf *.png);;All Files (*.*)"
+                    )
+                    if actual_img_path:
+                        base_dir = infer_base_dir(first_img, actual_img_path)
+
+        self.studio_doc_viewer.set_stores(self.opt_store, base_dir=base_dir)
+        self.preview_doc_viewer.set_stores(self.opt_store, base_dir=base_dir)
+
+        # Trigger-based metadata synchronization: immediately update links and trigger first row selection to sync tabs
+        self.update_image_studio_link_status()
+        if hasattr(self, "image_table") and self.image_table_model.pages:
+            self.image_table.selectRow(0)
+
+    def on_image_table_row_selected(self, selected, deselected):
+        indexes = self.image_table.selectionModel().selectedRows()
+        if not indexes:
+            return
+        row = indexes[0].row()
+        pages = self.image_table_model.pages
+        if 0 <= row < len(pages):
+            row_item = pages[row]
+            if len(row_item) == 6:
+                bates, doc_id, page_num, total_pages, vol, path = row_item
+            else:
+                bates, doc_id, page_num, vol, path = row_item
+            page_idx = page_num - 1
+
+            if hasattr(self, "opt_store") and self.opt_store and doc_id in self.opt_store.doc_id_list:
+                self.image_current_doc_idx = self.opt_store.doc_id_list.index(doc_id)
+
+            # Bidirectional cross-tab synchronization: Find record row index in preview_model and select it
+            # Temporarily block signals to prevent selection recursion loops
+            self.preview_table.selectionModel().blockSignals(True)
+            try:
+                for idx, r_data in enumerate(self.preview_model._data):
+                    # Compare control field or first column
+                    r_id = r_data[0] if len(r_data) > 0 else ""
+                    if str(r_id).strip().lower() == str(doc_id).strip().lower():
+                        self.preview_table.selectRow(idx)
+                        break
+            finally:
+                self.preview_table.selectionModel().blockSignals(False)
+
+            # Cross-tab binding: Find metadata record whose identifier matches the currently selected DocID
+            record_dict = self.doc_id_metadata_map.get(doc_id)
+            if not record_dict:
+                # Case-insensitive search inside self.doc_id_metadata_map
+                doc_id_lower = str(doc_id).strip().lower()
+                for k, v in self.doc_id_metadata_map.items():
+                    if str(k).strip().lower() == doc_id_lower:
+                        record_dict = v
+                        break
+
+            if record_dict:
+                self.studio_doc_viewer.set_stores(self.opt_store, {doc_id: record_dict}, base_dir=self.studio_doc_viewer.base_dir)
+            
+            self.studio_doc_viewer.record_selected(doc_id, page_idx=page_idx)
+            self.update_nav_controls()
+
+    def update_nav_controls(self):
+        if not hasattr(self, 'lbl_nav_info'):
+            return
+        total_docs = len(self.opt_store.doc_id_list)
+        if total_docs == 0:
+            self.lbl_nav_info.setText("Doc 0 of 0 | Page 0 of 0")
+            return
+
+        doc_id = self.opt_store.doc_id_list[self.image_current_doc_idx]
+        doc = self.opt_store.get_document(doc_id)
+        current_page = self.studio_doc_viewer.current_page_idx + 1 if doc else 0
+        total_pages = doc.page_count if doc else 0
+
+        self.lbl_nav_info.setText(f"Doc {self.image_current_doc_idx + 1:,} of {total_docs:,} ({doc_id}) | Page {current_page} of {total_pages}")
+
+    def nav_first_doc(self):
+        if self.image_table_model.pages:
+            self.image_table.selectRow(0)
+
+    def nav_prev_doc(self):
+        indexes = self.image_table.selectionModel().selectedRows()
+        if not indexes:
+            return
+        cur_row = indexes[0].row()
+        pages = self.image_table_model.pages
+        # Search backwards for previous document break row (Bates == DocID)
+        for r in range(cur_row - 1, -1, -1):
+            row_item = pages[r]
+            bates, doc_id = row_item[0], row_item[1]
+            if str(bates).strip().lower() == str(doc_id).strip().lower():
+                self.image_table.selectRow(r)
+                return
+        self.image_table.selectRow(0)
+
+    def nav_next_doc(self):
+        indexes = self.image_table.selectionModel().selectedRows()
+        if not indexes:
+            return
+        cur_row = indexes[0].row()
+        pages = self.image_table_model.pages
+        # Search forwards for next document break row (Bates == DocID)
+        for r in range(cur_row + 1, len(pages)):
+            row_item = pages[r]
+            bates, doc_id = row_item[0], row_item[1]
+            if str(bates).strip().lower() == str(doc_id).strip().lower():
+                self.image_table.selectRow(r)
+                return
+
+    def nav_last_doc(self):
+        pages = self.image_table_model.pages
+        if not pages:
+            return
+        # Find last document break row
+        for r in range(len(pages) - 1, -1, -1):
+            row_item = pages[r]
+            bates, doc_id = row_item[0], row_item[1]
+            if str(bates).strip().lower() == str(doc_id).strip().lower():
+                self.image_table.selectRow(r)
+                return
+        self.image_table.selectRow(len(pages) - 1)
+
+    def nav_prev_page(self):
+        indexes = self.image_table.selectionModel().selectedRows()
+        if not indexes:
+            return
+        cur_row = indexes[0].row()
+        if cur_row > 0:
+            self.image_table.selectRow(cur_row - 1)
+
+    def nav_next_page(self):
+        indexes = self.image_table.selectionModel().selectedRows()
+        if not indexes:
+            return
+        cur_row = indexes[0].row()
+        if cur_row + 1 < len(self.image_table_model.pages):
+            self.image_table.selectRow(cur_row + 1)
+
+    def handle_preview_nav(self, action: str):
+        # Preview viewer bottom controls:
+        # Document controls (first_doc, prev_doc, next_doc, last_doc) move selected row by 1 record.
+        # Page controls (prev_page, next_page) traverse pages inside the active document.
+        indexes = self.preview_table.selectionModel().selectedRows()
+        if not indexes:
+            return
+        cur_row = indexes[0].row()
+        total_rows = len(self.preview_model._data)
+
+        if action == "prev_page":
+            current_page = self.preview_doc_viewer.current_page_idx
+            if current_page > 0:
+                self.preview_doc_viewer.record_selected(self.preview_doc_viewer.current_doc_id, page_idx=current_page - 1)
+        elif action == "next_page":
+            current_page = self.preview_doc_viewer.current_page_idx
+            if current_page + 1 < self.preview_doc_viewer.total_doc_pages:
+                self.preview_doc_viewer.record_selected(self.preview_doc_viewer.current_doc_id, page_idx=current_page + 1)
+        elif action == "prev_doc":
+            if cur_row > 0:
+                self.preview_table.selectRow(cur_row - 1)
+            else:
+                self.preview_prev() # Page grid back
+        elif action == "next_doc":
+            if cur_row + 1 < total_rows:
+                self.preview_table.selectRow(cur_row + 1)
+            else:
+                self.preview_next() # Page grid forward
+        elif action == "first_doc":
+            self.preview_table.selectRow(0)
+        elif action == "last_doc":
+            if total_rows > 0:
+                self.preview_table.selectRow(total_rows - 1)
+
+    def handle_studio_nav(self, action: str):
+        # Studio viewer navigation directly controls flat image table row selections
+        if action == "first_doc": self.nav_first_doc()
+        elif action == "prev_doc": self.nav_prev_doc()
+        elif action == "prev_page": self.nav_prev_page()
+        elif action == "next_page": self.nav_next_page()
+        elif action == "next_doc": self.nav_next_doc()
+        elif action == "last_doc": self.nav_last_doc()
+
+    def on_preview_page_changed(self, doc_id, current_page, total_pages):
+        pass
+
+    def on_studio_page_changed(self, doc_id, current_page, total_pages):
+        # Synchronize selectRow index in image table to match current_page index
+        pages = self.image_table_model.pages
+        for idx, page_tuple in enumerate(pages):
+            p_doc_id = page_tuple[1]
+            p_num = page_tuple[2]
+            if str(p_doc_id).strip().lower() == str(doc_id).strip().lower() and p_num == current_page:
+                self.image_table.selectionModel().blockSignals(True)
+                try:
+                    self.image_table.selectRow(idx)
+                finally:
+                    self.image_table.selectionModel().blockSignals(False)
+                break
+
+    def on_open_clicked(self):
+        current_tab = self.tabs.currentIndex()
+        if current_tab == 2:  # Image Preview Tab
+            self.open_image_load_file()
+        else:
+            self.open_file()
+
     def on_tab_changed(self, index):
+        if index == 2:
+            self.btn_open.setText("Open Image Load File")
+        else:
+            self.btn_open.setText("Open Data Load File")
+
         if index == 1:
             self.load_preview_data()
 

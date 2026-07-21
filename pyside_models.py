@@ -321,3 +321,63 @@ class RecordTableModel(QAbstractTableModel):
         self.raw_row_data = row_data
         self.rebuild_view()
         self.endResetModel()
+
+
+class ImagePageTableModel(QAbstractTableModel):
+    """
+    High-performance QAbstractTableModel designed to handle 500,000+ page rows
+    (OPT-style: Bates, DocID, Page #, Doc Page Count, Volume, Image Path).
+    Doc Page Count is displayed ONLY when Bates == DocID (document break).
+    """
+    def __init__(self, pages=None, parent=None):
+        super().__init__(parent)
+        self.pages = pages or []  # List of tuples: (bates, doc_id, page_num, total_pages, volume, path)
+        self.headers = ["Bates", "DocID", "Page #", "Doc Page Count", "Volume", "Image Path"]
+
+    def rowCount(self, parent=QModelIndex()):
+        return len(self.pages)
+
+    def columnCount(self, parent=QModelIndex()):
+        return len(self.headers)
+
+    def data(self, index, role=Qt.DisplayRole):
+        if not index.isValid() or not (0 <= index.row() < self.rowCount()):
+            return None
+
+        row_item = self.pages[index.row()]
+        if len(row_item) == 6:
+            bates, doc_id, page_num, total_pages, volume, path = row_item
+        else:
+            bates, doc_id, page_num, volume, path = row_item
+            total_pages = 0
+
+        col = index.column()
+
+        if role == Qt.DisplayRole:
+            if col == 0: return bates
+            elif col == 1: return doc_id
+            elif col == 2: return str(page_num)
+            elif col == 3:
+                # Show total page count field ONLY when Bates == DocID
+                if str(bates).strip().lower() == str(doc_id).strip().lower():
+                    return str(total_pages) if total_pages > 0 else ""
+                return ""
+            elif col == 4: return volume
+            elif col == 5: return path
+
+        return None
+
+    def headerData(self, section, orientation, role=Qt.DisplayRole):
+        if role == Qt.DisplayRole and orientation == Qt.Horizontal:
+            if section < len(self.headers):
+                return self.headers[section]
+        elif role == Qt.DisplayRole and orientation == Qt.Vertical:
+            return str(section + 1)
+        return None
+
+    def update_pages(self, pages):
+        self.beginResetModel()
+        self.pages = pages or []
+        self.endResetModel()
+
+
