@@ -1287,7 +1287,7 @@ class PdfPrintDialog(QDialog):
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint | Qt.WindowType.WindowCloseButtonHint)
         self.setStyleSheet(GLOBAL_STYLE)
         self.setWindowTitle("Print PDFs & Export Load File")
-        self.resize(550, 320)
+        self.resize(555, 390)
         apply_dark_titlebar(self)
 
         layout = QVBoxLayout(self)
@@ -1312,6 +1312,16 @@ class PdfPrintDialog(QDialog):
         if default_doc_id_field in sorted_fields:
             self.cb_group_by.setCurrentText(default_doc_id_field)
         form_layout.addRow("Group By Field:", self.cb_group_by)
+
+        # OCR Options
+        self.chk_ocr = QCheckBox("Generate Searchable PDFs (OCR)")
+        self.chk_ocr.setChecked(False)
+        form_layout.addRow("", self.chk_ocr)
+
+        self.cb_ocr_lang = QComboBox()
+        self.cb_ocr_lang.addItems(["eng", "spa", "fra", "deu", "chi_sim"])
+        self.cb_ocr_lang.setCurrentText("eng")
+        form_layout.addRow("Primary OCR Language:", self.cb_ocr_lang)
 
         # Companion load file options
         self.chk_companion = QCheckBox("Generate Companion Load File")
@@ -1339,6 +1349,7 @@ class PdfPrintDialog(QDialog):
 
         # Connect signals
         self.chk_companion.stateChanged.connect(self.toggle_companion_widgets)
+        self.chk_ocr.stateChanged.connect(self.toggle_ocr_widgets)
         self.cb_companion_format.currentTextChanged.connect(self.update_default_companion_path)
         self.txt_out_dir.textChanged.connect(self.update_default_companion_path)
 
@@ -1355,12 +1366,17 @@ class PdfPrintDialog(QDialog):
         layout.addLayout(buttons_layout)
 
         self.toggle_companion_widgets()
+        self.toggle_ocr_widgets()
 
     def toggle_companion_widgets(self):
         enabled = self.chk_companion.isChecked()
         self.cb_companion_format.setEnabled(enabled)
         self.txt_companion_path.setEnabled(enabled)
         self.btn_browse_companion.setEnabled(enabled)
+
+    def toggle_ocr_widgets(self):
+        enabled = self.chk_ocr.isChecked()
+        self.cb_ocr_lang.setEnabled(enabled)
 
     def update_default_companion_path(self):
         if not self.txt_out_dir.text():
@@ -1399,7 +1415,9 @@ class PdfPrintDialog(QDialog):
             "group_by_field": self.cb_group_by.currentText() if self.cb_group_by.currentText() else None,
             "generate_companion": self.chk_companion.isChecked(),
             "companion_format": self.cb_companion_format.currentText() if self.chk_companion.isChecked() else None,
-            "companion_path": self.txt_companion_path.text().strip() if self.chk_companion.isChecked() else None
+            "companion_path": self.txt_companion_path.text().strip() if self.chk_companion.isChecked() else None,
+            "generate_ocr": self.chk_ocr.isChecked(),
+            "ocr_lang": self.cb_ocr_lang.currentText()
         }
 
 
@@ -4715,7 +4733,25 @@ class RelativityApp(QMainWindow):
 
             from PySide6.QtWidgets import QProgressDialog
             from PySide6.QtCore import Qt
-            self.progress = QProgressDialog("Initializing PDF export...", "Cancel", 0, len(self.opt_store.doc_id_list), self)
+
+            # Determine active base dataset index row numbers sequence to respect search filters
+            active_lines = self.preview_hits if getattr(self, 'preview_is_filtered_mode', False) and getattr(self, 'preview_hits', []) else None
+            if self.sorted_line_numbers is not None:
+                if active_lines is not None:
+                    hits_set = set(active_lines)
+                    active_lines = [r for r in self.sorted_line_numbers if r in hits_set]
+                else:
+                    active_lines = self.sorted_line_numbers
+
+            enc = self.get_override_val(self.cb_encoding)
+            sep = self.get_override_val(self.cb_sep)
+            qt = self.get_override_val(self.cb_quote)
+            doc_id_field = self.image_doc_id_field
+
+            # Estimate total output item count
+            total_items = len(active_lines) if active_lines is not None else len(self.opt_store.doc_id_list)
+
+            self.progress = QProgressDialog("Initializing PDF export...", "Cancel", 0, total_items, self)
             self.progress.setStyleSheet(GLOBAL_STYLE)
             self.progress.setWindowFlags(self.progress.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint)
             apply_dark_titlebar(self.progress)
@@ -4732,6 +4768,14 @@ class RelativityApp(QMainWindow):
                 doc_id_metadata_map=self.doc_id_metadata_map,
                 companion_format=companion_format,
                 companion_path=companion_path,
+                data_file_path=self.selected_file_path,
+                active_lines=active_lines,
+                encoding=enc,
+                sep=sep,
+                quote=qt,
+                doc_id_field=doc_id_field,
+                generate_ocr=data.get("generate_ocr", False),
+                ocr_lang=data.get("ocr_lang", "eng"),
                 parent=self
             )
             self.progress.canceled.connect(self.pdf_worker.cancel)

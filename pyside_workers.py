@@ -291,7 +291,9 @@ class PdfPrintWorker(QThread):
     finished = Signal(int, int)
     error = Signal(str)
 
-    def __init__(self, opt_store, base_dir, root_out_dir, group_by_field=None, doc_id_metadata_map=None, companion_format=None, companion_path=None, parent=None):
+    def __init__(self, opt_store, base_dir, root_out_dir, group_by_field=None, doc_id_metadata_map=None,
+                 companion_format=None, companion_path=None, data_file_path=None, active_lines=None,
+                 encoding=None, sep=None, quote=None, doc_id_field=None, generate_ocr=False, ocr_lang="eng", parent=None):
         super().__init__(parent)
         self.opt_store = opt_store
         self.base_dir = base_dir
@@ -300,6 +302,14 @@ class PdfPrintWorker(QThread):
         self.doc_id_metadata_map = doc_id_metadata_map or {}
         self.companion_format = companion_format
         self.companion_path = companion_path
+        self.data_file_path = data_file_path
+        self.active_lines = active_lines
+        self.encoding = encoding
+        self.sep = sep
+        self.quote = quote
+        self.doc_id_field = doc_id_field
+        self.generate_ocr = generate_ocr
+        self.ocr_lang = ocr_lang
         self._is_cancelled = False
 
     def cancel(self):
@@ -310,6 +320,8 @@ class PdfPrintWorker(QThread):
             import fitz
             import math
             import os
+            import csv
+            import traceback
             from opt_engine import resolve_full_image_path
 
             def sanitize_folder_name(name):
@@ -320,18 +332,133 @@ class PdfPrintWorker(QThread):
                     name = name.replace(char, "_")
                 return name.strip()
 
+            def compile_page_into_pdf(target_pdf, full_path, occ_idx):
+                ext = os.path.splitext(full_path)[1].lower()
+                try:
+                    if ext == ".pdf":
+                        src_pdf = fitz.open(full_path)
+                        page_idx = occ_idx if len(src_pdf) > occ_idx else 0
+                        
+                        ocr_success = False
+                        if self.generate_ocr:
+                            try:
+                                import pytesseract
+                                from PIL import Image
+                                import io
+                                
+                                page = src_pdf[page_idx]
+                                pix = page.get_pixmap(dpi=150)
+                                pil_img = Image.open(io.BytesIO(pix.tobytes("png")))
+                                
+                                pdf_bytes = pytesseract.image_to_pdf_or_hocr(pil_img, extension='pdf', lang=self.ocr_lang)
+                                ocr_pdf = fitz.open("pdf", pdf_bytes)
+                                if len(ocr_pdf) > 0:
+                                    target_pdf.insert_pdf(ocr_pdf)
+                                    ocr_pdf.close()
+                                    ocr_success = True
+                            except Exception as ocr_ex:
+                                print(f"OCR warning: Tesseract error or missing. Falling back to non-searchable PDF. Details: {str(ocr_ex)}")
+                        
+                        if not ocr_success:
+                            target_pdf.insert_pdf(src_pdf, from_page=page_idx, to_page=page_idx)
+                        src_pdf.close()
+                        return True
+                    else:
+                        from PIL import Image
+                        with Image.open(full_path) as pil_img:
+                            total_frames = getattr(pil_img, "n_frames", 1)
+                            frame_to_use = min(occ_idx, total_frames - 1)
+                            pil_img.seek(frame_to_use)
+                            
+                            ocr_success = False
+                            if self.generate_ocr:
+                                try:
+                                    import pytesseract
+                                    pdf_bytes = pytesseract.image_to_pdf_or_hocr(pil_img, extension='pdf', lang=self.ocr_lang)
+                                    ocr_pdf = fitz.open("pdf", pdf_bytes)
+                                    if len(ocr_pdf) > 0:
+                                        target_pdf.insert_pdf(ocr_pdf)
+                                        ocr_pdf.close()
+                                        ocr_success = True
+                                except Exception as ocr_ex:
+                                    print(f"OCR warning: Tesseract error or missing. Falling back to non-searchable PDF. Details: {str(ocr_ex)}")
+                            
+                            if not ocr_success:
+                                rgb_img = pil_img.convert("RGB")
+                                import io
+                                pdf_io = io.BytesIO()
+                                rgb_img.save(pdf_io, format="PDF")
+                                pdf_io.seek(0)
+                                src_pdf = fitz.open("pdf", pdf_io.read())
+                                target_pdf.insert_pdf(src_pdf)
+                                src_pdf.close()
+                            return True
+                except Exception as ex:
+                    print(f"Failed to process page: {str(ex)}")
+                    return False
+
             doc_ids = self.opt_store.doc_id_list
             total_docs = len(doc_ids)
             if total_docs == 0:
                 self.finished.emit(0, 0)
                 return
 
-            # Group and sort the documents
-            grouped_docs = {}  # {group_name: [doc_ids]}
-            use_grouping = bool(self.group_by_field)
+            # Respect active search filters and build metadata if active_lines is specified
+            if self.active_lines is not None:
+                self.progress.emit(0, 100, "Applying active search filters...")
+                import processor
+                headers, records = processor.read_specific_records(
+                    self.data_file_path, self.active_lines, self.encoding, self.sep, self.quote
+                )
+                
+                doc_id_idx = 0
+                if self.doc_id_field and self.doc_id_field in headers:
+                    doc_id_idx = headers.index(self.doc_id_field)
+                else:
+                    for cand in ("Control Number", "DocID", "BegBates", "Bates", "ID"):
+                        for idx, h in enumerate(headers):
+                            if cand.lower() in h.lower():
+                                doc_id_idx = idx
+                                break
+                        else:
+                            continue
+                        break
+                
+                filtered_set = set()
+                filtered_ordered = []
+                for rec in records:
+                    if doc_id_idx < len(rec):
+                        doc_id = str(rec[doc_id_idx])
+                        filtered_set.add(doc_id)
+                        filtered_ordered.append(doc_id)
+                        
+                        # Build metadata mapping for this doc_id
+                        row_dict = {}
+                        for h_idx, h in enumerate(headers):
+                            if h_idx < len(rec):
+                                row_dict[h] = str(rec[h_idx])
+                        self.doc_id_metadata_map[doc_id] = row_dict
+                
+                # Intersect with opt_store doc_ids preserving search order
+                doc_ids = [d for d in filtered_ordered if d in self.opt_store.documents]
+                total_docs = len(doc_ids)
+                if total_docs == 0:
+                    self.finished.emit(0, 0)
+                    return
 
-            sorted_doc_ids = []
+            # Grouping compiled PDF compilation
+            use_grouping = bool(self.group_by_field)
+            
+            # Setup directory structure
+            pdf_dir = os.path.join(self.root_out_dir, "PDF")
+            os.makedirs(pdf_dir, exist_ok=True)
+
+            docs_printed = 0
+            errors = 0
+            companion_records = []
+
             if use_grouping:
+                grouped_docs = {}  # {group_name: [doc_ids]}
                 for doc_id in doc_ids:
                     meta = self.doc_id_metadata_map.get(doc_id, {})
                     raw_val = meta.get(self.group_by_field, "")
@@ -340,124 +467,141 @@ class PdfPrintWorker(QThread):
                         grouped_docs[group_val] = []
                     grouped_docs[group_val].append(doc_id)
                 
-                # Sort group names, and within each group sort doc_ids
                 sorted_groups = sorted(grouped_docs.keys())
-                for g in sorted_groups:
-                    sorted_doc_ids.extend(sorted(grouped_docs[g]))
+                total_output_files = len(sorted_groups)
+                pad_width = max(4, len(str(total_output_files)))
+
+                for g_idx, group_name in enumerate(sorted_groups):
+                    if self._is_cancelled:
+                        break
+
+                    self.progress.emit(docs_printed, total_output_files, f"Compiling Group PDF for {group_name}...")
+                    
+                    folder_idx = (g_idx // 1000) + 1
+                    folder_name = f"IMAGE{str(folder_idx).zfill(pad_width)}"
+                    subfolder_path = os.path.join(pdf_dir, folder_name)
+                    os.makedirs(subfolder_path, exist_ok=True)
+
+                    pdf_filename = f"{group_name}.pdf"
+                    dest_pdf_path = os.path.join(subfolder_path, pdf_filename)
+
+                    group_pdf = fitz.open()
+                    doc_has_pages = False
+                    first_doc_volume = None
+
+                    # Sort docs in group strictly by DocID
+                    group_docs_sorted = sorted(grouped_docs[group_name])
+                    for doc_id in group_docs_sorted:
+                        doc = self.opt_store.get_document(doc_id)
+                        if not doc:
+                            continue
+                        
+                        if first_doc_volume is None:
+                            first_doc_volume = doc.volume_name
+
+                        path_counts = {}
+                        for img_path in doc.image_paths:
+                            full_path = resolve_full_image_path(img_path, self.base_dir)
+                            if not os.path.exists(full_path):
+                                continue
+
+                            ext = os.path.splitext(full_path)[1].lower()
+                            occ_idx = path_counts.get(img_path, 0)
+                            path_counts[img_path] = occ_idx + 1
+
+                            if compile_page_into_pdf(group_pdf, full_path, occ_idx):
+                                doc_has_pages = True
+
+                    if doc_has_pages and len(group_pdf) > 0:
+                        try:
+                            group_pdf.save(dest_pdf_path)
+                            docs_printed += 1
+                            
+                            rel_pdf_path = os.path.join("PDF", folder_name, pdf_filename).replace("/", "\\")
+                            companion_records.append({
+                                "doc_id": group_name,
+                                "path": rel_pdf_path,
+                                "volume": first_doc_volume or "VOL01",
+                                "page_count": len(group_pdf)
+                            })
+                        except Exception:
+                            errors += 1
+                    else:
+                        errors += 1
+
+                    group_pdf.close()
             else:
-                # No grouping - single default list sorted by DocID
+                # No grouping
+                total_output_files = len(doc_ids)
+                pad_width = max(4, len(str(total_output_files)))
                 sorted_doc_ids = sorted(doc_ids)
 
-            # Setup directory structure
-            pdf_dir = os.path.join(self.root_out_dir, "PDF")
-            os.makedirs(pdf_dir, exist_ok=True)
+                for idx, doc_id in enumerate(sorted_doc_ids):
+                    if self._is_cancelled:
+                        break
 
-            docs_printed = 0
-            errors = 0
-            companion_records = []
-            
-            # Dynamically calculate zero-padding width based on total expected compiled PDF files being created
-            pad_width = max(3, len(str(total_docs)))
+                    self.progress.emit(docs_printed, total_output_files, f"Compiling PDF for {doc_id}...")
 
-            for idx, doc_id in enumerate(sorted_doc_ids):
-                if self._is_cancelled:
-                    break
+                    folder_idx = (idx // 1000) + 1
+                    folder_name = f"IMAGE{str(folder_idx).zfill(pad_width)}"
+                    subfolder_path = os.path.join(pdf_dir, folder_name)
+                    os.makedirs(subfolder_path, exist_ok=True)
 
-                doc = self.opt_store.get_document(doc_id)
-                if not doc:
-                    continue
+                    pdf_filename = f"{doc_id}.pdf"
+                    dest_pdf_path = os.path.join(subfolder_path, pdf_filename)
 
-                # Folder partition index and sequential name prefix matching requirement (e.g. IMAGE001)
-                folder_idx = (idx // 1000) + 1
-                folder_name = f"IMAGE{str(folder_idx).zfill(pad_width)}"
-                subfolder_path = os.path.join(pdf_dir, folder_name)
-                os.makedirs(subfolder_path, exist_ok=True)
+                    doc_pdf = fitz.open()
+                    path_counts = {}
+                    doc_has_pages = False
+                    doc = self.opt_store.get_document(doc_id)
 
-                pdf_filename = f"{doc_id}.pdf"
-                dest_pdf_path = os.path.join(subfolder_path, pdf_filename)
+                    if doc:
+                        for img_path in doc.image_paths:
+                            full_path = resolve_full_image_path(img_path, self.base_dir)
+                            if not os.path.exists(full_path):
+                                continue
 
-                # Report the count of compiled PDF files being created (docs_printed) out of the total expected
-                self.progress.emit(docs_printed, total_docs, f"Compiling PDF for {doc_id}...")
+                            ext = os.path.splitext(full_path)[1].lower()
+                            occ_idx = path_counts.get(img_path, 0)
+                            path_counts[img_path] = occ_idx + 1
 
-                # Compile doc pages into a single PDF
-                doc_pdf = fitz.open()
-                path_counts = {}
-                doc_has_pages = False
-
-                for img_path in doc.image_paths:
-                    full_path = resolve_full_image_path(img_path, self.base_dir)
-                    if not os.path.exists(full_path):
-                        continue
-
-                    ext = os.path.splitext(full_path)[1].lower()
-                    occ_idx = path_counts.get(img_path, 0)
-                    path_counts[img_path] = occ_idx + 1
-
-                    try:
-                        if ext == ".pdf":
-                            src_pdf = fitz.open(full_path)
-                            if len(src_pdf) > occ_idx:
-                                doc_pdf.insert_pdf(src_pdf, from_page=occ_idx, to_page=occ_idx)
-                            else:
-                                doc_pdf.insert_pdf(src_pdf, from_page=0, to_page=0)
-                            src_pdf.close()
-                            doc_has_pages = True
-                        else:
-                            from PIL import Image
-                            with Image.open(full_path) as pil_img:
-                                total_frames = getattr(pil_img, "n_frames", 1)
-                                frame_to_use = min(occ_idx, total_frames - 1)
-                                pil_img.seek(frame_to_use)
-
-                                rgb_img = pil_img.convert("RGB")
-                                import io
-                                pdf_io = io.BytesIO()
-                                rgb_img.save(pdf_io, format="PDF")
-                                pdf_io.seek(0)
-                                src_pdf = fitz.open("pdf", pdf_io.read())
-                                doc_pdf.insert_pdf(src_pdf)
-                                src_pdf.close()
+                            if compile_page_into_pdf(doc_pdf, full_path, occ_idx):
                                 doc_has_pages = True
-                    except Exception:
-                        pass
 
-                if doc_has_pages and len(doc_pdf) > 0:
-                    try:
-                        doc_pdf.save(dest_pdf_path)
-                        docs_printed += 1
-                        
-                        # Construct relative path using the sequential folder structure
-                        rel_pdf_path = os.path.join("PDF", folder_name, pdf_filename).replace("/", "\\")
-
-                        companion_records.append({
-                            "doc_id": doc_id,
-                            "path": rel_pdf_path,
-                            "volume": doc.volume_name or "VOL01",
-                            "page_count": len(doc_pdf)
-                        })
-                    except Exception:
+                    if doc_has_pages and len(doc_pdf) > 0:
+                        try:
+                            doc_pdf.save(dest_pdf_path)
+                            docs_printed += 1
+                            
+                            rel_pdf_path = os.path.join("PDF", folder_name, pdf_filename).replace("/", "\\")
+                            companion_records.append({
+                                "doc_id": doc_id,
+                                "path": rel_pdf_path,
+                                "volume": doc.volume_name or "VOL01",
+                                "page_count": len(doc_pdf)
+                            })
+                        except Exception:
+                            errors += 1
+                    else:
                         errors += 1
-                else:
-                    errors += 1
 
-                doc_pdf.close()
+                    doc_pdf.close()
 
             # Write companion file if format is specified
             if companion_records and self.companion_format and self.companion_path:
                 fmt = self.companion_format.upper()
                 if fmt == "CSV":
-                    import csv
                     with open(self.companion_path, "w", newline="", encoding="utf-8") as f:
                         writer = csv.writer(f)
                         writer.writerow(["DocID", "File Path"])
                         for rec in companion_records:
                             writer.writerow([rec["doc_id"], rec["path"]])
                 elif fmt == "LFP":
-                    with open(self.companion_path, "w", encoding="utf-8") as f:
+                    with open(self.companion_path, "w", newline="", encoding="utf-8") as f:
                         for rec in companion_records:
-                            f.write(f'IM,{rec["doc_id"]},D,0,{rec["path"]}\n')
+                            f.write(f"IM,{rec['doc_id']},D,{rec['volume']},{rec['path']},0,{rec['page_count']}\n")
                 elif fmt == "OPT":
-                    with open(self.companion_path, "w", encoding="utf-8") as f:
+                    with open(self.companion_path, "w", newline="", encoding="utf-8") as f:
                         for rec in companion_records:
                             f.write(f'"{rec["doc_id"]}","{rec["volume"]}","{rec["path"]}","Y","","","{rec["page_count"]}"\n')
 
