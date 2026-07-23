@@ -1,4 +1,4 @@
-from PyQt5.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel, QModelIndex
+from PySide6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel, QModelIndex
 import processor
 
 class SchemaTableModel(QAbstractTableModel):
@@ -41,24 +41,24 @@ class SchemaTableModel(QAbstractTableModel):
         
         elif role == Qt.ForegroundRole:
             if col_name == "Export":
-                from PyQt5.QtGui import QColor
+                from PySide6.QtGui import QColor
                 return QColor("#3B82F6") if row_data.get("selected", True) else QColor("#6B7280")
             elif col_name == "Target Name":
                 norm = processor.normalize_field_name(row_data.get("column", ""))
                 if norm in self.rename_map:
-                    from PyQt5.QtGui import QColor
+                    from PySide6.QtGui import QColor
                     return QColor("#FBBF24")  # Amber 400
 
         elif role == Qt.TextAlignmentRole:
             if col_name == "Export":
-                return Qt.AlignCenter
+                return Qt.AlignmentFlag.AlignCenter
 
         return None
 
     def flags(self, index):
         if not index.isValid():
-            return Qt.NoItemFlags
-        return Qt.ItemIsEnabled | Qt.ItemIsSelectable
+            return Qt.ItemFlag.NoItemFlags
+        return Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
 
     def setData(self, index, value, role=Qt.EditRole):
         return False
@@ -224,6 +224,7 @@ class PreviewTableModel(QAbstractTableModel):
         super().__init__(parent)
         self.headers = headers or []
         self._data = data or []
+        self.line_numbers = None
 
     def rowCount(self, parent=QModelIndex()):
         return len(self._data)
@@ -247,14 +248,50 @@ class PreviewTableModel(QAbstractTableModel):
             if section < len(self.headers):
                 return self.headers[section]
         elif role == Qt.DisplayRole and orientation == Qt.Vertical:
+            if self.line_numbers is not None and section < len(self.line_numbers):
+                return str(self.line_numbers[section])
             return str(getattr(self, 'start_line', 1) + section)
         return None
 
-    def update_data(self, new_headers, new_data, start_line=1):
+    def update_data(self, new_headers, new_data, start_line=1, line_numbers=None):
         self.beginResetModel()
         self.headers = new_headers
         self._data = new_data
         self.start_line = start_line
+        self.line_numbers = line_numbers
+        self.endResetModel()
+
+    def sort_data(self, col_index, sort_type="Alphabetical", ascending=True):
+        if col_index < 0 or col_index >= len(self.headers):
+            return
+            
+        self.beginResetModel()
+        
+        def safe_float(val):
+            try:
+                return float(str(val).strip())
+            except ValueError:
+                return float('-inf') if ascending else float('inf')
+
+        def safe_date(val):
+            from dateutil import parser
+            import datetime
+            try:
+                return parser.parse(str(val).strip())
+            except Exception:
+                # Fallback to epoch start / end depending on sorting order
+                return datetime.datetime.min if ascending else datetime.datetime.max
+
+        if sort_type == "Numeric":
+            key_func = lambda row: safe_float(row[col_index]) if col_index < len(row) else (float('-inf') if ascending else float('inf'))
+        elif sort_type == "Date":
+            import datetime
+            key_func = lambda row: safe_date(row[col_index]) if col_index < len(row) else (datetime.datetime.min if ascending else datetime.datetime.max)
+        else:
+            # Default Alphabetical / string fallback
+            key_func = lambda row: str(row[col_index]).strip().lower() if col_index < len(row) else ""
+            
+        self._data.sort(key=key_func, reverse=not ascending)
         self.endResetModel()
 
 class RecordTableModel(QAbstractTableModel):

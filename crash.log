@@ -1,6 +1,6 @@
-2026-07-21 19:08:30.559541
+2026-07-23 14:50:15.435375
 Traceback (most recent call last):
-  File "c:\code\python\RelativityLoadFileAnalyzer\pyside_main.py", line 1884, in sync_filter_widths
-    self.filter_exp.setFixedWidth(self.header.sectionSize(0))
-    ^^^^^^^^^^^^^^^
-AttributeError: 'RelativityApp' object has no attribute 'filter_exp'. Did you mean: 'filter_smp'?
+  File "c:\code\python\RelativityLoadFileAnalyzer\pyside_models.py", line 374, in rowCount
+    def rowCount(self, parent=QModelIndex()):
+    
+KeyboardInterrupt

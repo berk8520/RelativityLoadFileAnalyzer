@@ -372,16 +372,44 @@ def parse_image_load_file(file_path: str) -> OptDocumentStore:
 
 # --- Load File Writers ---
 
-def write_opt_file(output_path: str, store: OptDocumentStore):
+def write_opt_file(output_path: str, pages: List[Tuple[str, str, int, int, str, str]]):
     """
-    Writes OptDocumentStore contents to an Opticon (.opt) file.
+    Writes a list of flat pages to an Opticon (.opt) file.
+    Tuple format: (bates, doc_id, page_index, total_doc_pages, volume, path)
     """
     with open(output_path, 'w', encoding='utf-8', newline='') as f:
-        for doc_id in store.doc_id_list:
-            doc = store.documents[doc_id]
-            for idx, img_path in enumerate(doc.image_paths):
-                bates = doc.bates_list[idx] if idx < len(doc.bates_list) else f"{doc.doc_id}_{idx+1}"
-                doc_break = "Y" if idx == 0 else "N"
-                page_cnt = str(doc.page_count) if idx == 0 else ""
-                line = f'"{bates}","{doc.volume_name}","{img_path}","{doc_break}","{doc.box}","{doc.folder}","{page_cnt}"\n'
-                f.write(line)
+        # Group pages by doc_id to track first page doc break
+        current_doc = None
+        for item in pages:
+            bates, doc_id, page_num, total_pages, volume, img_path = item
+            if current_doc != doc_id:
+                current_doc = doc_id
+                doc_break = "Y"
+                # Find total pages count for this doc in the current export list
+                doc_pages = [p for p in pages if p[1] == doc_id]
+                page_cnt = str(len(doc_pages))
+            else:
+                doc_break = "N"
+                page_cnt = ""
+            
+            line = f'"{bates}","{volume}","{img_path}","{doc_break}","","","{page_cnt}"\n'
+            f.write(line)
+
+def write_lfp_file(output_path: str, pages: List[Tuple[str, str, int, int, str, str]]):
+    """
+    Writes a list of flat pages to an IPRO LFP (.lfp) file.
+    Tuple format: (bates, doc_id, page_index, total_doc_pages, volume, path)
+    """
+    with open(output_path, 'w', encoding='utf-8', newline='') as f:
+        current_doc = None
+        for item in pages:
+            bates, doc_id, page_num, total_pages, volume, img_path = item
+            if current_doc != doc_id:
+                current_doc = doc_id
+                doc_break = "D" # Doc break start indicator
+            else:
+                doc_break = "C" # Continuous page indicator
+            
+            # Format: IM,Bates,DocBreak,VolumeOffset,Path
+            line = f'IM,{bates},{doc_break},{volume},{img_path}\n'
+            f.write(line)

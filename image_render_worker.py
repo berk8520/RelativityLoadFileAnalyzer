@@ -1,11 +1,11 @@
 """
-Optimized Image Render Worker for Relativity Load File Analyzer.
-Renders PDF pages and image files cleanly without text-destroying downsampling artifacts.
+Optimized Image Render Worker for Relativity Load File Analyzer using PySide6.
+Renders PDF pages and image files cleanly to temporary PNG files for browser viewport consumption.
 """
 
 import os
-from PyQt5.QtCore import QThread, pyqtSignal
-from PyQt5.QtGui import QImage, QPixmap
+import tempfile
+from PySide6.QtCore import QThread, Signal
 from PIL import Image
 
 try:
@@ -20,9 +20,9 @@ from opt_engine import resolve_full_image_path
 class ImageRenderWorker(QThread):
     """
     Worker thread that renders a requested document page asynchronously.
-    Emits image_rendered signal with (QPixmap, page_index, total_pages, error_message).
+    Emits image_rendered signal with (temp_image_path: str, page_index: int, total_pages: int, error_message: str).
     """
-    image_rendered = pyqtSignal(object, int, int, str)
+    image_rendered = Signal(str, int, int, str)
 
     def __init__(self, file_path: str, page_index: int = 0, dpi: int = 300, base_dir: str = "", parent=None):
         super().__init__(parent)
@@ -35,7 +35,7 @@ class ImageRenderWorker(QThread):
         full_path = resolve_full_image_path(self.file_path, self.base_dir)
 
         if not os.path.exists(full_path):
-            self.image_rendered.emit(QPixmap(), self.page_index, 0, f"File not found: {full_path}")
+            self.image_rendered.emit("", self.page_index, 0, f"File not found: {full_path}")
             return
 
         ext = os.path.splitext(full_path)[1].lower()
@@ -46,18 +46,18 @@ class ImageRenderWorker(QThread):
             else:
                 self._render_image(full_path)
         except Exception as e:
-            self.image_rendered.emit(QPixmap(), self.page_index, 0, f"Rendering error: {str(e)}")
+            self.image_rendered.emit("", self.page_index, 0, f"Rendering error: {str(e)}")
 
     def _render_pdf(self, pdf_path: str):
         if not HAS_PYMUPDF:
-            self.image_rendered.emit(QPixmap(), self.page_index, 0, "PyMuPDF (fitz) is required for PDF rendering. Please install via pip install PyMuPDF.")
+            self.image_rendered.emit("", self.page_index, 0, "PyMuPDF (fitz) is required for PDF rendering.")
             return
 
         doc = fitz.open(pdf_path)
         total_pages = len(doc)
         if total_pages == 0:
             doc.close()
-            self.image_rendered.emit(QPixmap(), self.page_index, 0, "PDF has no pages.")
+            self.image_rendered.emit("", self.page_index, 0, "PDF has no pages.")
             return
 
         idx = max(0, min(self.page_index, total_pages - 1))
@@ -68,12 +68,13 @@ class ImageRenderWorker(QThread):
         mat = fitz.Matrix(zoom, zoom)
         pix = page.get_pixmap(matrix=mat, alpha=False)
 
-        # Convert fitz pixmap (RGB samples) to QImage / QPixmap using proper stride
-        qimg = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888)
-        pixmap = QPixmap.fromImage(qimg.copy())
+        # Output to temporary PNG
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".png")
+        os.close(temp_fd)
+        pix.save(temp_path)
         doc.close()
 
-        self.image_rendered.emit(pixmap, idx, total_pages, "")
+        self.image_rendered.emit(temp_path, idx, total_pages, "")
 
     def _render_image(self, img_path: str):
         with Image.open(img_path) as pil_img:
@@ -84,20 +85,13 @@ class ImageRenderWorker(QThread):
             if total_pages > 1:
                 pil_img.seek(idx)
 
-            # Use direct conversion of PIL modes to native QImage formats
-            if pil_img.mode == "1":
-                converted = pil_img.convert("L")
-                data = converted.tobytes("raw", "L")
-                qimg = QImage(data, converted.width, converted.height, converted.width, QImage.Format_Grayscale8)
-            elif pil_img.mode in ("P", "L"):
-                converted = pil_img.convert("L")
-                data = converted.tobytes("raw", "L")
-                qimg = QImage(data, converted.width, converted.height, converted.width, QImage.Format_Grayscale8)
-            else:
-                converted = pil_img.convert("RGBA")
-                data = converted.tobytes("raw", "RGBA")
-                qimg = QImage(data, converted.width, converted.height, converted.width * 4, QImage.Format_RGBA8888)
-            
-            pixmap = QPixmap.fromImage(qimg.copy())
+            # Convert to standard RGB to prevent browser compatibility issues
+            if pil_img.mode != "RGB":
+                pil_img = pil_img.convert("RGB")
 
-            self.image_rendered.emit(pixmap, idx, total_pages, "")
+            # Save to temporary PNG
+            temp_fd, temp_path = tempfile.mkstemp(suffix=".png")
+            os.close(temp_fd)
+            pil_img.save(temp_path, "PNG")
+
+            self.image_rendered.emit(temp_path, idx, total_pages, "")

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #0F172A;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #viewer-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            display: block;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            /* Chromium CSS scaling optimized for high contrast text downsampling */
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: high-quality;
+        }
+    </style>
+</head>
+<body>
+    <div id="viewer-container">
+        <canvas id="doc-canvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('doc-canvas');
+        const ctx = canvas.getContext('2d');
+        let img = new Image();
+        let scale = 1.0;
+        let panX = 0;
+        let panY = 0;
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+        let viewMode = 'fit_page'; // 'fit_page', 'fit_width', 'custom'
+
+        img.onload = () => {
+            resetView();
+            draw();
+        };
+
+        function loadImage(src) {
+            img.src = src;
+        }
+
+        function resetView() {
+            if (!img.width || !img.height) return;
+            const container = document.getElementById('viewer-container');
+            const cw = container.clientWidth;
+            const ch = container.clientHeight;
+
+            if (viewMode === 'fit_page') {
+                const scaleX = cw / img.width;
+                const scaleY = ch / img.height;
+                scale = Math.min(scaleX, scaleY);
+            } else if (viewMode === 'fit_width') {
+                scale = (cw - 12) / img.width;
+            }
+            // Center the image
+            panX = (cw - img.width * scale) / 2;
+            panY = (ch - img.height * scale) / 2;
+        }
+
+        function setViewMode(mode) {
+            viewMode = mode;
+            resetView();
+            draw();
+        }
+
+        function zoom(factor) {
+            viewMode = 'custom';
+            const container = document.getElementById('viewer-container');
+            const centerX = container.clientWidth / 2;
+            const centerY = container.clientHeight / 2;
+
+            // Zoom centered on viewport center
+            const imgX = (centerX - panX) / scale;
+            const imgY = (centerY - panY) / scale;
+
+            scale *= factor;
+            scale = Math.max(0.05, Math.min(scale, 10.0));
+
+            panX = centerX - imgX * scale;
+            panY = centerY - imgY * scale;
+            draw();
+        }
+
+        function zoomPercent(pct) {
+            viewMode = 'custom';
+            scale = pct / 100.0;
+            resetView();
+            draw();
+        }
+
+        function draw() {
+            if (!img.width || !img.height) return;
+            const container = document.getElementById('viewer-container');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Enable high-fidelity scaling algorithms
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+
+            ctx.save();
+            ctx.translate(panX, panY);
+            ctx.scale(scale, scale);
+            ctx.drawImage(img, 0, 0);
+            ctx.restore();
+        }
+
+        // Pan interactions
+        window.addEventListener('resize', () => {
+            if (viewMode !== 'custom') {
+                resetView();
+            }
+            draw();
+        });
+
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            startX = e.clientX - panX;
+            startY = e.clientY - panY;
+            canvas.style.cursor = 'grabbing';
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            panX = e.clientX - startX;
+            panY = e.clientY - startY;
+            draw();
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+            canvas.style.cursor = 'default';
+        });
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const factor = e.deltaY < 0 ? 1.1 : 0.9;
+            zoom(factor);
+        });
+    </script>
+</body>
+</html>

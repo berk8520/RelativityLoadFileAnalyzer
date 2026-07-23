@@ -1,99 +1,59 @@
 """
-Unified Document Viewer Widget for Relativity Load File Analyzer.
-Contains a QTabWidget with 'Metadata' (record detail table) and 'Image' (QGraphicsView image viewer with pan/zoom).
+Unified Document Viewer Widget for Relativity Load File Analyzer using PySide6.
+Contains a QTabWidget with 'Metadata' (record detail table) and 'Image' (QWebEngineView HTML5 canvas document viewer).
 """
 
 import os
-from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QGraphicsView, QGraphicsScene,
-    QGraphicsPixmapItem, QTableWidget, QTableWidgetItem, QHeaderView, QLabel,
-    QPushButton, QFrame, QCheckBox, QLineEdit
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QTableWidget, QTableWidgetItem, 
+    QHeaderView, QLabel, QPushButton, QFrame, QCheckBox, QLineEdit, QSizePolicy,
+    QMenu, QApplication
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QPointF
-from PyQt5.QtGui import QPixmap, QTransform, QPainter, QWheelEvent, QMouseEvent
+from PySide6.QtCore import Qt, Signal, QUrl
+from PySide6.QtWebEngineWidgets import QWebEngineView
+
+
+class CopyableTableWidget(QTableWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.show_context_menu)
+        
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.RightButton:
+            event.accept()
+            return
+        super().mousePressEvent(event)
+        
+    def show_context_menu(self, pos):
+        item = self.itemAt(pos)
+        if not item:
+            return
+            
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu { background-color: #1E293B; color: #FFFFFF; border: 1px solid #475569; padding: 4px; }
+            QMenu::item { padding: 6px 24px; margin: 2px; border-radius: 4px; }
+            QMenu::item:selected { background-color: #3B82F6; color: #FFFFFF; }
+        """)
+        copy_action = menu.addAction("Copy Field Value")
+        
+        action = menu.exec(self.viewport().mapToGlobal(pos))
+        if action == copy_action:
+            QApplication.clipboard().setText(item.text())
 
 from image_render_worker import ImageRenderWorker
 from opt_engine import OptDocumentStore, OptDocument
 
 
-class ZoomableGraphicsView(QGraphicsView):
-    """
-    QGraphicsView with smooth pan (middle/left drag) and mouse-wheel zoom centered on cursor.
-    """
-    # Signal emitted when scale changes: (zoom_percentage_int)
-    zoom_changed = pyqtSignal(int)
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._current_zoom = 100
-        self.setRenderHints(
-            QPainter.Antialiasing | 
-            QPainter.TextAntialiasing | 
-            QPainter.SmoothPixmapTransform | 
-            QPainter.HighQualityAntialiasing
-        )
-        self.setDragMode(QGraphicsView.ScrollHandDrag)
-        self.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        self.setStyleSheet("background-color: #0F172A; border: none;")
-        self._zoom_factor = 1.15
-
-    def wheelEvent(self, event: QWheelEvent):
-        if event.angleDelta().y() > 0:
-            self.zoom_in()
-        else:
-            self.zoom_out()
-
-    def zoom_in(self):
-        self.scale(self._zoom_factor, self._zoom_factor)
-        self._current_zoom = int(round(self._current_zoom * self._zoom_factor))
-        self.zoom_changed.emit(self._current_zoom)
-        self.update_transformation_mode()
-
-    def zoom_out(self):
-        self.scale(1.0 / self._zoom_factor, 1.0 / self._zoom_factor)
-        self._current_zoom = int(round(self._current_zoom / self._zoom_factor))
-        self.zoom_changed.emit(self._current_zoom)
-        self.update_transformation_mode()
-
-    def fit_in_view_custom(self, item, aspect_ratio_mode=Qt.KeepAspectRatio):
-        if item and item.scene():
-            self.fitInView(item, aspect_ratio_mode)
-            # Recompute zoom factor based on fit scale
-            self.recompute_fit_zoom(item)
-            self.update_transformation_mode()
-
-    def reset_zoom(self):
-        self.resetTransform()
-        self._current_zoom = 100
-        self.zoom_changed.emit(self._current_zoom)
-        self.update_transformation_mode()
-
-    def recompute_fit_zoom(self, item):
-        rect = item.boundingRect()
-        if rect.width() > 0:
-            scale_x = self.viewport().width() / rect.width()
-            self._current_zoom = int(round(scale_x * 100))
-            self.zoom_changed.emit(self._current_zoom)
-
-    def update_transformation_mode(self):
-        # Retrieve QGraphicsPixmapItem from current scene and apply original quality SmoothTransformation at all levels
-        scene = self.scene()
-        if scene:
-            for item in scene.items():
-                if isinstance(item, QGraphicsPixmapItem):
-                    item.setTransformationMode(Qt.SmoothTransformation)
-
-
 class UnifiedDocumentViewer(QWidget):
     """
-    Reusable Document Viewer Component with Metadata & Image tabs.
+    Reusable Document Viewer Component with Metadata & Image tabs using PySide6 and QWebEngineView.
     Listens to record_selected(record_id: str) signal.
     """
     # Signals
-    request_nav_action = pyqtSignal(str)
-    page_changed = pyqtSignal(str, int, int)
+    request_nav_action = Signal(str)
+    page_changed = Signal(str, int, int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -104,6 +64,10 @@ class UnifiedDocumentViewer(QWidget):
         self.current_page_idx: int = 0
         self.worker: ImageRenderWorker = None
         self.view_mode: str = "fit_page"  # "fit_page", "fit_width"
+        self.current_temp_img = ""
+        
+        # Prevent the web engine / layout container from expanding and pushing splitters out of window boundaries
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
 
         self._init_ui()
 
@@ -123,7 +87,7 @@ class UnifiedDocumentViewer(QWidget):
         img_layout = QVBoxLayout(self.image_tab)
         img_layout.setContentsMargins(4, 4, 4, 4)
 
-        # Toolbar overlay controls (Fit Width, Fit Page, Zoom In, Zoom Out, Reset)
+        # Toolbar overlay controls
         tb_layout = QHBoxLayout()
         tb_layout.setContentsMargins(2, 2, 2, 2)
         
@@ -131,9 +95,8 @@ class UnifiedDocumentViewer(QWidget):
         self.btn_fit_width = QPushButton("Fit Width")
         self.btn_zoom_in = QPushButton("+")
         self.btn_zoom_out = QPushButton("-")
-        self.btn_reset_zoom = QPushButton("100%")
 
-        for btn in (self.btn_fit_page, self.btn_fit_width, self.btn_zoom_in, self.btn_zoom_out, self.btn_reset_zoom):
+        for btn in (self.btn_fit_page, self.btn_fit_width, self.btn_zoom_in, self.btn_zoom_out):
             btn.setStyleSheet("""
                 QPushButton { background-color: #334155; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
                 QPushButton:hover { background-color: #475569; }
@@ -147,14 +110,12 @@ class UnifiedDocumentViewer(QWidget):
 
         img_layout.addLayout(tb_layout)
 
-        # QGraphicsView setup
-        self.graphics_scene = QGraphicsScene(self)
-        self.graphics_view = ZoomableGraphicsView(self)
-        self.graphics_view.setScene(self.graphics_scene)
-        self.pixmap_item = QGraphicsPixmapItem()
-        self.graphics_scene.addItem(self.pixmap_item)
-
-        img_layout.addWidget(self.graphics_view)
+        # QWebEngineView setup
+        self.web_view = QWebEngineView(self)
+        # Load local viewer HTML page
+        viewer_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "viewer.html")
+        self.web_view.load(QUrl.fromLocalFile(viewer_path))
+        img_layout.addWidget(self.web_view, 1)
 
         # Bottom Navigation Bar
         nav_bar_box = QFrame()
@@ -203,11 +164,11 @@ class UnifiedDocumentViewer(QWidget):
         meta_ctrl_layout.addWidget(self.record_search)
         meta_layout.addLayout(meta_ctrl_layout)
 
-        self.meta_table = QTableWidget()
+        self.meta_table = CopyableTableWidget()
         self.meta_table.setColumnCount(2)
         self.meta_table.setHorizontalHeaderLabels(["Field", "Value"])
-        self.meta_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Interactive)
-        self.meta_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.meta_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+        self.meta_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)
         self.meta_table.setStyleSheet("""
             QTableWidget { background-color: #0F172A; color: #FFFFFF; gridline-color: #334155; }
             QHeaderView::section { background-color: #1E293B; color: #94A3B8; font-weight: bold; padding: 4px; }
@@ -220,12 +181,10 @@ class UnifiedDocumentViewer(QWidget):
         layout.addWidget(self.tab_widget)
 
         # Connect toolbar button signals
-        self.btn_zoom_in.clicked.connect(self.graphics_view.zoom_in)
-        self.btn_zoom_out.clicked.connect(self.graphics_view.zoom_out)
-        self.btn_reset_zoom.clicked.connect(self.graphics_view.reset_zoom)
+        self.btn_zoom_in.clicked.connect(self.zoom_in)
+        self.btn_zoom_out.clicked.connect(self.zoom_out)
         self.btn_fit_page.clicked.connect(self.fit_page)
         self.btn_fit_width.clicked.connect(self.fit_width)
-        self.graphics_view.zoom_changed.connect(lambda pct: self.btn_reset_zoom.setText(f"{pct}%"))
         
         # Connect metadata filter signals
         self.record_search.textChanged.connect(self.filter_metadata_table)
@@ -240,20 +199,17 @@ class UnifiedDocumentViewer(QWidget):
     def set_stores(self, opt_store: OptDocumentStore, metadata_dict: dict = None, base_dir: str = ""):
         self.opt_store = opt_store
         if metadata_dict is not None:
-            # Overwrite or merge changes dynamically
             self.metadata_dict.update(metadata_dict)
         self.base_dir = base_dir
         if self.current_doc_id:
             self._update_metadata_tab(self.current_doc_id)
 
     def clear_viewer(self):
-        # Cancel any active render worker thread
         if self.worker and self.worker.isRunning():
             self.worker.terminate()
             self.worker.wait()
-        self.graphics_scene.clear()
-        self.pixmap_item = QGraphicsPixmapItem()
-        self.graphics_scene.addItem(self.pixmap_item)
+        # Clear web canvas
+        self.web_view.page().runJavaScript("loadImage('');")
         self.meta_table.setRowCount(0)
         self.metadata_dict = {}
         self.lbl_status.setText("No document loaded")
@@ -261,11 +217,19 @@ class UnifiedDocumentViewer(QWidget):
             self.lbl_nav_counter.setText("Doc 0 of 0 | Page 0 of 0")
         self.current_doc_id = ""
         self.current_page_idx = 0
+        self._clear_temp_image()
+
+    def _clear_temp_image(self):
+        if self.current_temp_img and os.path.exists(self.current_temp_img):
+            try:
+                os.remove(self.current_temp_img)
+            except Exception:
+                pass
+            self.current_temp_img = ""
 
     def record_selected(self, record_id: str, page_idx: int = 0):
         """
-        Slot called when a record is selected in the UI.
-        Loads page synchronously or asynchronously via background thread.
+        Slot called when a record is selected in the UI. Loads page via background thread.
         """
         self.current_doc_id = str(record_id)
         self.current_page_idx = page_idx
@@ -276,9 +240,7 @@ class UnifiedDocumentViewer(QWidget):
         # 2. Update Image Tab
         doc = self.opt_store.get_document(self.current_doc_id)
         if not doc or not doc.image_paths:
-            self.graphics_scene.clear()
-            self.pixmap_item = QGraphicsPixmapItem()
-            self.graphics_scene.addItem(self.pixmap_item)
+            self.web_view.page().runJavaScript("loadImage('');")
             self.lbl_status.setText(f"No images linked for DocID: {self.current_doc_id}")
             self.page_changed.emit(self.current_doc_id, 0, 0)
             return
@@ -289,7 +251,10 @@ class UnifiedDocumentViewer(QWidget):
 
         self.lbl_status.setText(f"Loading {os.path.basename(img_path)}...")
 
-        # Get target bounds from the viewport size
+        if self.worker and self.worker.isRunning():
+            self.worker.terminate()
+            self.worker.wait()
+
         self.worker = ImageRenderWorker(
             img_path, 
             page_index=target_page, 
@@ -300,16 +265,17 @@ class UnifiedDocumentViewer(QWidget):
         self.worker.image_rendered.connect(self._on_image_rendered)
         self.worker.start()
 
-    def _on_image_rendered(self, pixmap: QPixmap, page_idx: int, total_pages: int, err_msg: str):
-        if err_msg or pixmap.isNull():
-            self.lbl_status.setText(f"Error: {err_msg or 'Failed to load image pixmap'}")
+    def _on_image_rendered(self, temp_img_path: str, page_idx: int, total_pages: int, err_msg: str):
+        if err_msg or not temp_img_path or not os.path.exists(temp_img_path):
+            self.lbl_status.setText(f"Error: {err_msg or 'Failed to load image path'}")
             return
 
-        self.graphics_scene.clear()
-        self.pixmap_item = QGraphicsPixmapItem(pixmap)
-        self.graphics_scene.addItem(self.pixmap_item)
-        self.graphics_view.update_transformation_mode()
-        self.graphics_scene.setSceneRect(0, 0, pixmap.width(), pixmap.height())
+        self._clear_temp_image()
+        self.current_temp_img = temp_img_path
+
+        # Convert to local file URL for Chromium to load safely
+        file_url = QUrl.fromLocalFile(temp_img_path).toString()
+        self.web_view.page().runJavaScript(f"loadImage('{file_url}');")
 
         bates = ""
         doc = self.opt_store.get_document(self.current_doc_id)
@@ -324,39 +290,29 @@ class UnifiedDocumentViewer(QWidget):
             self.lbl_nav_counter.setText(status_text)
 
         # Apply persisted view mode (Fit Width vs Fit Page)
-        if self.view_mode == "fit_width":
-            self.fit_width()
-        else:
-            self.fit_page()
-
+        self.web_view.page().runJavaScript(f"setViewMode('{self.view_mode}');")
         self.page_changed.emit(self.current_doc_id, self.current_page_idx + 1, self.total_doc_pages)
+
+    def zoom_in(self):
+        self.web_view.page().runJavaScript("zoom(1.15);")
+
+    def zoom_out(self):
+        self.web_view.page().runJavaScript("zoom(0.85);")
+
+    def reset_zoom(self):
+        self.web_view.page().runJavaScript("zoomPercent(100);")
 
     def fit_page(self):
         self.view_mode = "fit_page"
-        if self.pixmap_item and not self.pixmap_item.pixmap().isNull():
-            self.graphics_view.fitInView(self.pixmap_item, Qt.KeepAspectRatio)
-            self.graphics_view.recompute_fit_zoom(self.pixmap_item)
-            self.graphics_view.update_transformation_mode()
-            self.graphics_view.verticalScrollBar().setValue(0)
+        self.web_view.page().runJavaScript("setViewMode('fit_page');")
 
     def fit_width(self):
         self.view_mode = "fit_width"
-        if self.pixmap_item and not self.pixmap_item.pixmap().isNull():
-            rect = self.pixmap_item.boundingRect()
-            vw = self.graphics_view.viewport().width() - 12
-            if vw > 0 and rect.width() > 0:
-                scale_factor = vw / rect.width()
-                self.graphics_view.resetTransform()
-                self.graphics_view.scale(scale_factor, scale_factor)
-                self.graphics_view.recompute_fit_zoom(self.pixmap_item)
-                self.graphics_view.update_transformation_mode()
-                # Scroll all the way to top of page
-                self.graphics_view.verticalScrollBar().setValue(0)
+        self.web_view.page().runJavaScript("setViewMode('fit_width');")
 
     def _update_metadata_tab(self, doc_id: str):
         record_data = self.metadata_dict.get(doc_id)
         if record_data is None:
-            # Case-insensitive lookup
             doc_id_lower = str(doc_id).strip().lower()
             for k, v in self.metadata_dict.items():
                 if str(k).strip().lower() == doc_id_lower:
@@ -364,7 +320,6 @@ class UnifiedDocumentViewer(QWidget):
                     break
 
         if record_data is None and len(self.metadata_dict) == 1:
-            # Fallback if metadata_dict was passed containing a single active selection
             record_data = next(iter(self.metadata_dict.values()))
 
         record_data = record_data or {}
@@ -373,6 +328,10 @@ class UnifiedDocumentViewer(QWidget):
             self.meta_table.setItem(row, 0, QTableWidgetItem(str(k)))
             self.meta_table.setItem(row, 1, QTableWidgetItem(str(v)))
         self.filter_metadata_table()
+        
+        # Dynamically size columns to fit longest fields/values
+        self.meta_table.resizeColumnToContents(0)
+        self.meta_table.resizeColumnToContents(1)
 
     def filter_metadata_table(self):
         query = self.record_search.text().lower()
@@ -395,4 +354,8 @@ class UnifiedDocumentViewer(QWidget):
                 self.meta_table.setRowHidden(r, True)
             else:
                 self.meta_table.setRowHidden(r, False)
+
+    def closeEvent(self, event):
+        self._clear_temp_image()
+        super().closeEvent(event)
 

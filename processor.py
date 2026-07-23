@@ -389,38 +389,47 @@ def find_sequence_gaps(file_path, start_col, end_col):
              [{'prefix': 'ABC', 'gap_start': 'ABC00010', 'gap_end': 'ABC00015', 'missing_count': 4}]
     """
     encoding = get_encoding(file_path)
-    sep, quote = get_delimiters(file_path)
+    sep, quote = get_delimiters(file_path, encoding=encoding)
     
     gaps = []
     
+    # Pre-compile the regex for speed (re.compile yields huge gains in loops)
+    num_pattern = re.compile(r'^(.*?)(0*(\d+))$')
+    
+    def fast_parse_control(val_str):
+        if not val_str:
+            return None, None, 0
+        match = num_pattern.match(val_str.strip())
+        if match:
+            return match.group(1), int(match.group(3)), len(match.group(2))
+        return None, None, 0
+
     with open(file_path, 'r', encoding=encoding, errors='ignore') as f:
         header_line = f.readline()
         if not header_line:
             return gaps
         
         headers = [p.strip(quote) for p in header_line.strip().split(sep)]
-        if start_col not in headers or end_col not in headers:
+        if start_col not in headers or (end_col and end_col not in headers):
             raise ValueError(f"Selected control number columns must exist in file headers.")
             
         start_idx = headers.index(start_col)
-        end_idx = headers.index(end_col)
+        end_idx = headers.index(end_col) if end_col else -1
         
         prev_end_prefix = None
         prev_end_num = None
         prev_end_digits = 0
         
-        row_num = 1
         for line in f:
-            row_num += 1
             parts = [p.strip(quote) for p in line.strip().split(sep)]
-            if len(parts) <= max(start_idx, end_idx):
+            if len(parts) <= start_idx:
                 continue # skip malformed row
                 
             start_val = parts[start_idx]
-            end_val = parts[end_idx]
+            end_val = parts[end_idx] if end_idx != -1 and len(parts) > end_idx else start_val
             
-            s_pref, s_num, s_dig = parse_control_number(start_val)
-            e_pref, e_num, e_dig = parse_control_number(end_val)
+            s_pref, s_num, s_dig = fast_parse_control(start_val)
+            e_pref, e_num, e_dig = fast_parse_control(end_val)
             
             if s_num is None or e_num is None:
                 continue # Skip if parsing failed
@@ -440,34 +449,24 @@ def find_sequence_gaps(file_path, start_col, end_col):
                         "missing_count": gap_size
                     })
             
-            # Check internal gap within the row (Start -> End)
-            if s_pref == e_pref:
-                if e_num < s_num:
-                    # Inverted range? Let's skip or handle: usually indicates single document or error
-                    pass
-                elif e_num > s_num + 1:
-                    # NOTE: A document range like ABC001 to ABC005 normally means pages ABC001, ABC002, ABC003, ABC004, ABC005 are in the document.
-                    # Usually, there is no GAP between document start and end, but this depends on whether we check document boundaries or page sequences.
-                    # In Relativity DAT, each row is a Document. ABC001 to ABC005 is a single document.
-                    # Gaps are checked between the end of Doc N and the start of Doc N+1.
-                    # Gaps are NOT checked between Start and End of the same row because those pages are present in that document.
-                    pass
-            
             prev_end_prefix = e_pref
             prev_end_num = e_num
             prev_end_digits = e_dig
             
     return gaps
 
-def remap_headers(file_path, cross_ref_path, output_path, keep_columns=None, encoding=None, sep=None, quote=None, target_line_numbers=None):
+def remap_headers(file_path, cross_ref_path, output_path, keep_columns=None, encoding=None, sep=None, quote=None, target_line_numbers=None, pending_edits=None, new_columns=None):
     """
-    Renames headers in a load file by streaming. Can also filter columns (keep_columns)
-    and target specific rows (target_line_numbers).
+    Renames headers in a load file by streaming. Can also filter columns (keep_columns),
+    target specific rows (target_line_numbers), and overlays pending edits/new columns on export.
     """
     import csv
     import tempfile
     import shutil
     import os
+
+    pending_edits = pending_edits or {}
+    new_columns = new_columns or []
 
     try:
         # 1. Load Cross-Reference Map if provided
@@ -515,9 +514,15 @@ def remap_headers(file_path, cross_ref_path, output_path, keep_columns=None, enc
                 except StopIteration:
                     return 0
 
+                # Form pristine header list + any added columns
+                full_src_headers = list(headers)
+                for new_col in new_columns:
+                    if new_col not in full_src_headers:
+                        full_src_headers.append(new_col)
+
                 # Map headers using rename_map
                 mapped_headers = []
-                for h in headers:
+                for h in full_src_headers:
                     normalized = normalize_field_name(h)
                     if normalized in rename_map:
                         mapped_headers.append(rename_map[normalized])
@@ -530,7 +535,7 @@ def remap_headers(file_path, cross_ref_path, output_path, keep_columns=None, enc
                     keep_indices = []
                     for col in keep_columns:
                         idx = -1
-                        for i, h in enumerate(headers):
+                        for i, h in enumerate(full_src_headers):
                             if h.lower() == col.lower():
                                 idx = i
                                 break
@@ -548,13 +553,25 @@ def remap_headers(file_path, cross_ref_path, output_path, keep_columns=None, enc
                         line_num += 1
                         continue
 
+                    # 1) Expand row to match pristine headers + new columns
+                    row_list = list(row)
+                    while len(row_list) < len(full_src_headers):
+                        row_list.append("")
+
+                    # 2) Apply pending edits for this row number
+                    for col_idx, h in enumerate(full_src_headers):
+                        edit_key = (line_num, h)
+                        if edit_key in pending_edits:
+                            row_list[col_idx] = pending_edits[edit_key]
+
+                    # 3) Filter columns if keeping specific indices
                     if keep_indices is not None:
-                        out_row = [row[i] for i in keep_indices if i < len(row)]
+                        out_row = [row_list[i] for i in keep_indices if i < len(row_list)]
                         if len(out_row) < len(keep_indices):
                             out_row.extend([""] * (len(keep_indices) - len(out_row)))
                         writer.writerow(out_row)
                     else:
-                        writer.writerow(row)
+                        writer.writerow(row_list)
 
                     count += 1
                     line_num += 1
@@ -877,6 +894,7 @@ def read_specific_records(file_path, target_lines, encoding=None, sep=None, quot
             
             line_num = 1
             max_target = max(target_set) if target_set else 0
+            records_map = {}
             for row in reader:
                 if line_num in target_set:
                     # Pad/truncate the row to the original headers length
@@ -888,10 +906,15 @@ def read_specific_records(file_path, target_lines, encoding=None, sep=None, quot
                     audit = get_audit(file_path, line_num)
                     row.append(audit["Error"])
                     row.append(audit["Modification"])
-                    records.append(row)
+                    records_map[line_num] = row
                 if line_num >= max_target:
                     break
                 line_num += 1
+            
+            # Reconstruct list matching target_lines sorted/filtered order exactly
+            for line in target_lines:
+                if line in records_map:
+                    records.append(records_map[line])
     except Exception as e:
         print(f"PROCESSOR DEBUG: read_specific_records failed: {str(e)}")
         raise e
