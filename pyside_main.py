@@ -47,7 +47,12 @@ if sys.platform == 'win32':
                     failed_dlls.append(f"{os.path.basename(dll_path)} (does not exist)")
             
             if failed_dlls:
-                msg = "DLL Load Diagnostic Failures:\n\n" + "\n".join(failed_dlls)
+                os_ver = sys.getwindowsversion()
+                os_info = f"Windows Version: {os_ver.major}.{os_ver.minor} (Build {os_ver.build})\n"
+                has_std = hasattr(ctypes.windll.kernel32, "SetThreadDescription")
+                os_info += f"Has SetThreadDescription API: {has_std}\n"
+                
+                msg = f"{os_info}\nDLL Load Diagnostic Failures:\n\n" + "\n".join(failed_dlls)
                 ctypes.windll.user32.MessageBoxW(0, msg, "DLL Diagnostic Error", 0x10)
 
 from PySide6.QtWidgets import (
