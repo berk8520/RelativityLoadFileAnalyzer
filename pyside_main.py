@@ -3,6 +3,7 @@ import os
 import traceback
 import datetime
 import polars as pl
+import ctypes
 
 def my_excepthook(type, value, tback):
     with open("crash.log", "w") as f:
@@ -12,21 +13,40 @@ def my_excepthook(type, value, tback):
 
 sys.excepthook = my_excepthook
 
-# Add DLL directories for PySide6 DLL resolution on Windows and keep cookies to prevent garbage collection
+# 1. Mock Missing Kernel API (SetThreadDescription) for Windows Server 2016
+if sys.platform == "win32":
+    try:
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        if not hasattr(kernel32, "SetThreadDescription"):
+            @ctypes.WINFUNCTYPE(ctypes.c_long, ctypes.c_void_p, ctypes.c_wchar_p)
+            def dummy_set_thread_description(hThread, lpThreadDescription):
+                return 0  # S_OK equivalent
+            kernel32.SetThreadDescription = dummy_set_thread_description
+    except Exception as e:
+        print(f"Warning: Could not apply SetThreadDescription mock: {e}", file=sys.stderr)
+
+# 2. Explicit DLL Search Path Registration with persistent cookies
 dll_cookies = []
-if sys.platform == 'win32':
-    if getattr(sys, 'frozen', False):
-        base_dir = os.path.dirname(sys.executable)
-        internal_dir = os.path.join(base_dir, "_internal")
-        if os.path.exists(internal_dir):
-            for sub in ("", "PySide6", "shiboken6"):
-                target_path = os.path.join(internal_dir, sub) if sub else internal_dir
-                if os.path.exists(target_path):
-                    try:
-                        cookie = os.add_dll_directory(target_path)
-                        dll_cookies.append(cookie)
-                    except Exception:
-                        pass
+if sys.platform == "win32" and getattr(sys, 'frozen', False):
+    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    internal_dir = os.path.join(base_path, "_internal")
+    dirs_to_add = [base_path]
+    if os.path.exists(internal_dir):
+        dirs_to_add.append(internal_dir)
+        for sub in ("PySide6", "shiboken6"):
+            p = os.path.join(internal_dir, sub)
+            if os.path.exists(p):
+                dirs_to_add.append(p)
+    else:
+        pyside_dir = os.path.join(base_path, "PySide6")
+        if os.path.exists(pyside_dir):
+            dirs_to_add.append(pyside_dir)
+            
+    for d in dirs_to_add:
+        try:
+            dll_cookies.append(os.add_dll_directory(d))
+        except Exception:
+            pass
             
             # Diagnostic loader using ctypes to print exact DLL errors
             import ctypes
