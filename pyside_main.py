@@ -167,8 +167,11 @@ QPushButton {
     color: white;
     border: none;
     border-radius: 6px;
-    padding: 8px 28px 8px 16px;
+    padding: 8px 16px;
     font-weight: 600;
+}
+QPushButton#BtnTools, QPushButton#BtnEncoding, QPushButton#BtnDelimiters {
+    padding: 8px 28px 8px 16px;
 }
 QPushButton::menu-indicator {
     subcontrol-origin: padding;
@@ -3282,6 +3285,7 @@ class RelativityApp(QMainWindow):
         
         # Encoding dynamic button
         self.btn_encoding = QPushButton("Encoding: Auto")
+        self.btn_encoding.setObjectName("BtnEncoding")
         self.enc_menu = QMenu(self)
         for enc in ["Auto", "utf-8", "cp1252", "ascii", "utf-16"]:
             self.enc_menu.addAction(enc).triggered.connect(lambda checked=False, val=enc: self.on_encoding_selected(val))
@@ -3289,6 +3293,7 @@ class RelativityApp(QMainWindow):
         
         # Delimiters dynamic button
         self.btn_delimiters = QPushButton("Delimiters: Auto")
+        self.btn_delimiters.setObjectName("BtnDelimiters")
         self.del_menu = QMenu(self)
         
         self.sep_submenu = self.del_menu.addMenu("Separator")
@@ -3570,8 +3575,8 @@ class RelativityApp(QMainWindow):
         
         self.btn_field_up = QPushButton("Field Up")
         self.btn_field_down = QPushButton("Field Down")
-        self.btn_field_up.setFixedWidth(100)
-        self.btn_field_down.setFixedWidth(100)
+        self.btn_field_up.setMinimumWidth(110)
+        self.btn_field_down.setMinimumWidth(110)
         
         schema_ctrls.addWidget(self.chk_toggle_all_fields)
         schema_ctrls.addSpacing(20)
