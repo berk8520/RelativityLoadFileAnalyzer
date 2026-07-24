@@ -47,35 +47,37 @@ if sys.platform == "win32" and getattr(sys, 'frozen', False):
             dll_cookies.append(os.add_dll_directory(d))
         except Exception:
             pass
-            
-            # Diagnostic loader using ctypes to print exact DLL errors
-            import ctypes
-            dlls_to_test = [
-                os.path.join(internal_dir, "shiboken6", "shiboken6.abi3.dll"),
-                os.path.join(internal_dir, "PySide6", "pyside6.abi3.dll"),
-                os.path.join(internal_dir, "PySide6", "Qt6Core.dll"),
-                os.path.join(internal_dir, "PySide6", "Qt6Gui.dll"),
-                os.path.join(internal_dir, "PySide6", "Qt6Widgets.dll"),
-                os.path.join(internal_dir, "PySide6", "QtWidgets.pyd"),
-            ]
-            failed_dlls = []
-            for dll_path in dlls_to_test:
-                if os.path.exists(dll_path):
-                    try:
-                        ctypes.CDLL(dll_path)
-                    except Exception as e:
-                        failed_dlls.append(f"{os.path.basename(dll_path)}: {str(e)}")
-                else:
-                    failed_dlls.append(f"{os.path.basename(dll_path)} (does not exist)")
-            
-            if failed_dlls:
-                os_ver = sys.getwindowsversion()
-                os_info = f"Windows Version: {os_ver.major}.{os_ver.minor} (Build {os_ver.build})\n"
-                has_std = hasattr(ctypes.windll.kernel32, "SetThreadDescription")
-                os_info += f"Has SetThreadDescription API: {has_std}\n"
-                
-                msg = f"{os_info}\nDLL Load Diagnostic Failures:\n\n" + "\n".join(failed_dlls)
-                ctypes.windll.user32.MessageBoxW(0, msg, "DLL Diagnostic Error", 0x10)
+
+    # Diagnostic loader using ctypes to print exact DLL errors
+    internal_check_dir = internal_dir if os.path.exists(internal_dir) else base_path
+    pyside_check_dir = os.path.join(internal_check_dir, "PySide6")
+    shiboken_check_dir = os.path.join(internal_check_dir, "shiboken6")
+    dlls_to_test = [
+        os.path.join(shiboken_check_dir, "shiboken6.abi3.dll"),
+        os.path.join(pyside_check_dir, "pyside6.abi3.dll"),
+        os.path.join(pyside_check_dir, "Qt6Core.dll"),
+        os.path.join(pyside_check_dir, "Qt6Gui.dll"),
+        os.path.join(pyside_check_dir, "Qt6Widgets.dll"),
+        os.path.join(pyside_check_dir, "QtWidgets.pyd"),
+    ]
+    failed_dlls = []
+    for dll_path in dlls_to_test:
+        if os.path.exists(dll_path):
+            try:
+                ctypes.CDLL(dll_path)
+            except Exception as e:
+                failed_dlls.append(f"{os.path.basename(dll_path)}: {str(e)}")
+        else:
+            failed_dlls.append(f"{os.path.basename(dll_path)} (does not exist)")
+
+    if failed_dlls:
+        os_ver = sys.getwindowsversion()
+        os_info = f"Windows Version: {os_ver.major}.{os_ver.minor} (Build {os_ver.build})\n"
+        has_std = hasattr(ctypes.windll.kernel32, "SetThreadDescription")
+        os_info += f"Has SetThreadDescription API: {has_std}\n"
+
+        msg = f"{os_info}\nDLL Load Diagnostic Failures:\n\n" + "\n".join(failed_dlls)
+        ctypes.windll.user32.MessageBoxW(0, msg, "DLL Diagnostic Error", 0x10)
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
