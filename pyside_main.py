@@ -3577,6 +3577,7 @@ class RelativityApp(QMainWindow):
 
         self.cb_checked_filter = QComboBox()
         self.cb_checked_filter.addItems(["Show All Fields", "Show Checked Only", "Show Unchecked Only"])
+        self.cb_checked_filter.setMinimumWidth(160)
         
         self.filter_src = QLineEdit(); self.filter_src.setPlaceholderText("Filter Source...")
         self.filter_tgt = QLineEdit(); self.filter_tgt.setPlaceholderText("Filter Target...")
@@ -3588,7 +3589,10 @@ class RelativityApp(QMainWindow):
         max_layout.setSpacing(2)
         self.filter_max_op = QComboBox()
         self.filter_max_op.addItems(["=", ">", "<", ">=", "<="])
-        self.filter_max = QLineEdit(); self.filter_max.setPlaceholderText("Filter Max Lenght...")
+        self.filter_max_op.setMinimumWidth(45)
+        self.filter_max = QLineEdit(); self.filter_max.setPlaceholderText("Filter Max Length...")
+        self.filter_max.setMinimumWidth(115)
+        self.filter_max_container.setMinimumWidth(160)
         max_layout.addWidget(self.filter_max_op)
         max_layout.addWidget(self.filter_max)
         
@@ -3626,6 +3630,7 @@ class RelativityApp(QMainWindow):
         self.header = self.schema_table.horizontalHeader()
         self.header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.header.setStretchLastSection(True)
+        self.header.sectionResized.connect(self.sync_filter_widths)
         
         schema_layout.addWidget(self.schema_table)
         self.tabs.addTab(schema_tab, "Schema Analysis")
@@ -3691,19 +3696,19 @@ class RelativityApp(QMainWindow):
 
     def showEvent(self, event):
         super().showEvent(event)
-        self.schema_table.setColumnWidth(0, 60)
+        self.schema_table.setColumnWidth(0, 160)
         has_target = "Target Name" in self.schema_model.headers
         if has_target:
-            self.schema_table.setColumnWidth(1, 150)
+            self.schema_table.setColumnWidth(1, 160)
             self.schema_table.setColumnWidth(2, 200)
-            self.schema_table.setColumnWidth(3, 150)
-            self.schema_table.setColumnWidth(4, 100)
+            self.schema_table.setColumnWidth(3, 140)
+            self.schema_table.setColumnWidth(4, 160)
             # Column 5 (Sample) is stretched
             # Column 6 (Order) is 60px
         else:
-            self.schema_table.setColumnWidth(1, 200)
-            self.schema_table.setColumnWidth(2, 150)
-            self.schema_table.setColumnWidth(3, 100)
+            self.schema_table.setColumnWidth(1, 220)
+            self.schema_table.setColumnWidth(2, 140)
+            self.schema_table.setColumnWidth(3, 160)
             # Column 4 (Sample) is stretched
             # Column 5 (Order) is 60px
             
@@ -3728,29 +3733,46 @@ class RelativityApp(QMainWindow):
         self.sync_filter_widths()
 
     def sync_filter_widths(self, *args):
+        if not hasattr(self, 'header') or self.header.count() == 0:
+            return
         self.header.blockSignals(True)
+        if self.header.sectionSize(0) < 160:
+            self.schema_table.setColumnWidth(0, 160)
         self.cb_checked_filter.setFixedWidth(self.header.sectionSize(0))
-        has_target = "Target Name" in self.schema_model.headers
         
+        has_target = "Target Name" in self.schema_model.headers
         if has_target:
+            max_col = 4
             self.filter_tgt.show()
             self.filter_tgt.setFixedWidth(self.header.sectionSize(1))
             self.filter_src.setFixedWidth(self.header.sectionSize(2))
             self.filter_typ.setFixedWidth(self.header.sectionSize(3))
-            self.filter_max_container.setFixedWidth(self.header.sectionSize(4))
-            self.filter_smp.setFixedWidth(self.header.sectionSize(5))
         else:
+            max_col = 3
             self.filter_tgt.hide()
             self.filter_src.setFixedWidth(self.header.sectionSize(1))
             self.filter_typ.setFixedWidth(self.header.sectionSize(2))
-            self.filter_max_container.setFixedWidth(self.header.sectionSize(3))
-            self.filter_smp.setFixedWidth(self.header.sectionSize(4))
+            
+        if self.header.sectionSize(max_col) < 160:
+            self.schema_table.setColumnWidth(max_col, 160)
+        self.filter_max_container.setFixedWidth(self.header.sectionSize(max_col))
+        
+        smp_col = max_col + 1
+        if smp_col < self.header.count():
+            self.filter_smp.setFixedWidth(self.header.sectionSize(smp_col))
+            
         self.header.blockSignals(False)
 
     def pad_table_columns(self, table, padding=30):
         header = table.horizontalHeader()
         for i in range(header.count()):
-            table.setColumnWidth(i, table.columnWidth(i) + padding)
+            new_w = table.columnWidth(i) + padding
+            if table == self.schema_table:
+                if i == 0:
+                    new_w = max(new_w, 160)
+                elif i < len(self.schema_model.headers) and self.schema_model.headers[i] == "Max Length":
+                    new_w = max(new_w, 160)
+            table.setColumnWidth(i, new_w)
 
     def on_filter_changed(self):
         checked_opt_map = {
@@ -5883,12 +5905,30 @@ class RelativityApp(QMainWindow):
             
         self.handle_transform_errors(f"Merged fields for {count} records.", error_count)
 
-    def toggle_all_fields(self, state):
+    def update_toggle_all_checkbox_state(self):
+        if not hasattr(self, 'schema_model') or not hasattr(self, 'chk_toggle_all_fields') or not self.schema_model._data:
+            return
+        checked_count = sum(1 for item in self.schema_model._data if item.get("selected", True))
+        total_count = len(self.schema_model._data)
+        
+        self.chk_toggle_all_fields.blockSignals(True)
+        if checked_count == total_count:
+            self.chk_toggle_all_fields.setCheckState(Qt.CheckState.Checked)
+        elif checked_count == 0:
+            self.chk_toggle_all_fields.setCheckState(Qt.CheckState.Unchecked)
+        else:
+            self.chk_toggle_all_fields.setCheckState(Qt.CheckState.PartiallyChecked)
+        self.chk_toggle_all_fields.blockSignals(False)
+
+    def toggle_all_fields(self, state=None):
+        if not hasattr(self, 'schema_model') or not self.schema_model._data:
+            return
+        is_checked = self.chk_toggle_all_fields.isChecked()
         self.schema_model.beginResetModel()
-        is_checked = (state == Qt.Checked)
         for item in self.schema_model._data:
             item["selected"] = is_checked
         self.schema_model.endResetModel()
+        self.update_toggle_all_checkbox_state()
 
     def on_schema_table_clicked(self, proxy_idx):
         if not proxy_idx.isValid():
@@ -5900,6 +5940,7 @@ class RelativityApp(QMainWindow):
             self.schema_model.beginResetModel()
             self.schema_model._data[row]["selected"] = not self.schema_model._data[row].get("selected", True)
             self.schema_model.endResetModel()
+            self.update_toggle_all_checkbox_state()
 
     def move_selected_field_up(self):
         idx = self.schema_table.selectionModel().currentIndex()
