@@ -9,7 +9,7 @@ Compression=lzma2
 SolidCompression=yes
 OutputDir=dist
 OutputBaseFilename=RelativityLoadFileAnalyzer_Setup
-PrivilegesRequired=lowest
+PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64
 
 [Files]
