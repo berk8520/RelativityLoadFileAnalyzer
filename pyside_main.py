@@ -25,6 +25,30 @@ if sys.platform == 'win32':
                         os.add_dll_directory(target_path)
                     except Exception:
                         pass
+            
+            # Diagnostic loader using ctypes to print exact DLL errors
+            import ctypes
+            dlls_to_test = [
+                os.path.join(internal_dir, "shiboken6", "shiboken6.abi3.dll"),
+                os.path.join(internal_dir, "PySide6", "pyside6.abi3.dll"),
+                os.path.join(internal_dir, "PySide6", "Qt6Core.dll"),
+                os.path.join(internal_dir, "PySide6", "Qt6Gui.dll"),
+                os.path.join(internal_dir, "PySide6", "Qt6Widgets.dll"),
+                os.path.join(internal_dir, "PySide6", "QtWidgets.pyd"),
+            ]
+            failed_dlls = []
+            for dll_path in dlls_to_test:
+                if os.path.exists(dll_path):
+                    try:
+                        ctypes.CDLL(dll_path)
+                    except Exception as e:
+                        failed_dlls.append(f"{os.path.basename(dll_path)}: {str(e)}")
+                else:
+                    failed_dlls.append(f"{os.path.basename(dll_path)} (does not exist)")
+            
+            if failed_dlls:
+                msg = "DLL Load Diagnostic Failures:\n\n" + "\n".join(failed_dlls)
+                ctypes.windll.user32.MessageBoxW(0, msg, "DLL Diagnostic Error", 0x10)
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
