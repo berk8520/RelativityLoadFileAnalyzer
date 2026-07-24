@@ -12,6 +12,23 @@ def my_excepthook(type, value, tback):
 
 sys.excepthook = my_excepthook
 
+# Add DLL directories for PySide6 DLL resolution on Windows
+if sys.platform == 'win32':
+    if getattr(sys, 'frozen', False):
+        base_dir = os.path.dirname(sys.executable)
+        internal_dir = os.path.join(base_dir, "_internal")
+        if os.path.exists(internal_dir):
+            try:
+                os.add_dll_directory(internal_dir)
+            except Exception:
+                pass
+            pyside_dir = os.path.join(internal_dir, "PySide6")
+            if os.path.exists(pyside_dir):
+                try:
+                    os.add_dll_directory(pyside_dir)
+                except Exception:
+                    pass
+
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QFileDialog, QTabWidget, QTableView,
