@@ -167,8 +167,15 @@ QPushButton {
     color: white;
     border: none;
     border-radius: 6px;
-    padding: 8px 16px;
+    padding: 8px 28px 8px 16px;
     font-weight: 600;
+}
+QPushButton::menu-indicator {
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
+    right: 10px;
+    width: 12px;
+    height: 12px;
 }
 QPushButton:hover {
     background-color: #2563EB;
@@ -3589,10 +3596,10 @@ class RelativityApp(QMainWindow):
         max_layout.setSpacing(2)
         self.filter_max_op = QComboBox()
         self.filter_max_op.addItems(["=", ">", "<", ">=", "<="])
-        self.filter_max_op.setMinimumWidth(45)
-        self.filter_max = QLineEdit(); self.filter_max.setPlaceholderText("Filter Max Length...")
-        self.filter_max.setMinimumWidth(115)
-        self.filter_max_container.setMinimumWidth(160)
+        self.filter_max_op.setFixedWidth(50)
+        self.filter_max = QLineEdit(); self.filter_max.setPlaceholderText("Max Length...")
+        self.filter_max.setMinimumWidth(150)
+        self.filter_max_container.setMinimumWidth(210)
         max_layout.addWidget(self.filter_max_op)
         max_layout.addWidget(self.filter_max)
         
@@ -3702,13 +3709,13 @@ class RelativityApp(QMainWindow):
             self.schema_table.setColumnWidth(1, 160)
             self.schema_table.setColumnWidth(2, 200)
             self.schema_table.setColumnWidth(3, 140)
-            self.schema_table.setColumnWidth(4, 160)
+            self.schema_table.setColumnWidth(4, 210)
             # Column 5 (Sample) is stretched
             # Column 6 (Order) is 60px
         else:
             self.schema_table.setColumnWidth(1, 220)
             self.schema_table.setColumnWidth(2, 140)
-            self.schema_table.setColumnWidth(3, 160)
+            self.schema_table.setColumnWidth(3, 210)
             # Column 4 (Sample) is stretched
             # Column 5 (Order) is 60px
             
@@ -3753,8 +3760,8 @@ class RelativityApp(QMainWindow):
             self.filter_src.setFixedWidth(self.header.sectionSize(1))
             self.filter_typ.setFixedWidth(self.header.sectionSize(2))
             
-        if self.header.sectionSize(max_col) < 160:
-            self.schema_table.setColumnWidth(max_col, 160)
+        if self.header.sectionSize(max_col) < 210:
+            self.schema_table.setColumnWidth(max_col, 210)
         self.filter_max_container.setFixedWidth(self.header.sectionSize(max_col))
         
         smp_col = max_col + 1
