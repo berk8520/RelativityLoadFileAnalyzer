@@ -18,16 +18,13 @@ if sys.platform == 'win32':
         base_dir = os.path.dirname(sys.executable)
         internal_dir = os.path.join(base_dir, "_internal")
         if os.path.exists(internal_dir):
-            try:
-                os.add_dll_directory(internal_dir)
-            except Exception:
-                pass
-            pyside_dir = os.path.join(internal_dir, "PySide6")
-            if os.path.exists(pyside_dir):
-                try:
-                    os.add_dll_directory(pyside_dir)
-                except Exception:
-                    pass
+            for sub in ("", "PySide6", "shiboken6"):
+                target_path = os.path.join(internal_dir, sub) if sub else internal_dir
+                if os.path.exists(target_path):
+                    try:
+                        os.add_dll_directory(target_path)
+                    except Exception:
+                        pass
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
