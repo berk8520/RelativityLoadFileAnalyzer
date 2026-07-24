@@ -12,7 +12,8 @@ def my_excepthook(type, value, tback):
 
 sys.excepthook = my_excepthook
 
-# Add DLL directories for PySide6 DLL resolution on Windows
+# Add DLL directories for PySide6 DLL resolution on Windows and keep cookies to prevent garbage collection
+dll_cookies = []
 if sys.platform == 'win32':
     if getattr(sys, 'frozen', False):
         base_dir = os.path.dirname(sys.executable)
@@ -22,7 +23,8 @@ if sys.platform == 'win32':
                 target_path = os.path.join(internal_dir, sub) if sub else internal_dir
                 if os.path.exists(target_path):
                     try:
-                        os.add_dll_directory(target_path)
+                        cookie = os.add_dll_directory(target_path)
+                        dll_cookies.append(cookie)
                     except Exception:
                         pass
             
