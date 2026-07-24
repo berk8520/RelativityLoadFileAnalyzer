@@ -4422,7 +4422,6 @@ class RelativityApp(QMainWindow):
                 finally:
                     self.preview_table.selectionModel().blockSignals(False)
             self.preview_table.viewport().update()
-            self.preview_table.update()
         except Exception as e:
             show_dark_message(self, "Preview Error", str(e), QMessageBox.Critical)
 
